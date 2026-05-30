@@ -26,6 +26,10 @@ venv.bak/
 
 # Project specific generated outputs / temp files
 *TEMP_MPY*
-video_1_xlt.mp4
-# 忽略根目录下的任何生成的 mp4 视频（但不影响子目录如 head _test/test_videos 内的文件）
-/*.mp4
+*.mp4
+*.jpg
+*.jpeg
+
+# Test media / raw materials
+head _test/test_videos/
+head _test/test_images/
