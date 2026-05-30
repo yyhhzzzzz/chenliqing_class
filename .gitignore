@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Project specific generated outputs / temp files
+*TEMP_MPY*
+video_1_xlt.mp4
+# 忽略根目录下的任何生成的 mp4 视频（但不影响子目录如 head _test/test_videos 内的文件）
+/*.mp4
