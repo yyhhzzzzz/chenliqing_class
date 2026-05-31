@@ -33,3 +33,10 @@ venv.bak/
 # Test media / raw materials
 head _test/test_videos/
 head _test/test_images/
+
+# YOLO training and dataset directories
+dataset/
+runs/
+yolov8s.pt
+yolo26n.pt
+
