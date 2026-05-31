@@ -1,21 +1,12 @@
-# ==============================================================================
-# 🏫 智慧课堂考勤与抬头率检测系统 - 项目依赖环境
-# ==============================================================================
-
-# ---- 核心深度学习与计算机视觉 ----
-ultralytics>=8.0.0            # YOLOv8 核心目标检测框架
-torch>=2.0.0                  # PyTorch 深度学习引擎 (建议根据显卡 CUDA 版本匹配安装)
-torchvision>=0.15.0           # PyTorch 视觉库
-opencv-python>=4.6.0          # OpenCV 图像处理与摄像头流读取
-
-# ---- 视频与图像辅助处理 ----
-numpy>=1.23.0                 # 高性能矩阵/数值计算库
-matplotlib>=3.5.0             # 绘图与分析图表库
-moviepy>=1.0.3                # 视频剪辑与处理库 (在 head_test 中使用)
-
-# ---- Web 服务与数据库后台 ----
-Flask>=2.2.0                  # 轻量级 Web 服务框架
-Flask-SQLAlchemy>=3.0.0       # Flask 的 ORM 数据库管理插件
-PyMySQL>=1.0.0                # MySQL 数据库 Python 连接驱动
-cryptography>=38.0.0          # MySQL 连接所需的加密库支撑
-pandas>=1.5.0                 # 数据处理与报表导出
+ultralytics>=8.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>=4.6.0
+numpy>=1.23.0
+matplotlib>=3.5.0
+moviepy>=1.0.3
+Flask>=2.2.0
+Flask-SQLAlchemy>=3.0.0
+PyMySQL>=1.0.0
+cryptography>=38.0.0
+pandas>=1.5.0
