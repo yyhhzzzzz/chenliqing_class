@@ -39,4 +39,5 @@ dataset/
 runs/
 yolov8s.pt
 yolo26n.pt
+yolov8n.pt
 
