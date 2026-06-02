@@ -54,6 +54,7 @@ def find_best_model():
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     search_paths = [
+        os.path.join(current_dir, "weights", "best.pt"),
         os.path.join(current_dir, "runs", "detect", "runs", "detect", "student_attention_yolov8s_1024p", "weights", "best.pt"),
         os.path.join(current_dir, "runs", "detect", "student_attention_yolov8s_1024p", "weights", "best.pt"),
         os.path.join(current_dir, "best.pt"),

@@ -45,6 +45,6 @@ yolov8n.pt
 static/uploads/
 static/outputs/
 
-# Test prediction outputs
-test/predict/
+# Test prediction outputs and materials
+test/
 
