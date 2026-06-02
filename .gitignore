@@ -41,3 +41,10 @@ yolov8s.pt
 yolo26n.pt
 yolov8n.pt
 
+# Flask static uploads and outputs
+static/uploads/
+static/outputs/
+
+# Test prediction outputs
+test/predict/
+
