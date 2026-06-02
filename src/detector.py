@@ -1,7 +1,11 @@
 import os
 import cv2
-from ultralytics import YOLO
+import tempfile
+from ultralytics import YOLO, settings
 from glob import glob
+
+# 重定向 ultralytics 生成的 runs 文件夹到系统临时目录下，防止污染项目根目录
+settings.update({'runs_dir': os.path.join(tempfile.gettempdir(), 'ultralytics_runs')})
 
 # 听讲状态聚合字典（核心分类映射）
 ATTENTION_MAPPING = {
