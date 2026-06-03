@@ -1,5 +1,8 @@
 import os
-from ultralytics import YOLO
+from ultralytics import YOLO, settings
+
+# 修复 Windows 下的 libiomp5md.dll 冲突
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 def train_model():
     # 1. 获取数据集配置文件 data.yaml 的绝对路径
@@ -8,7 +11,6 @@ def train_model():
     dataset_yaml_path = os.path.join(
         current_dir, 
         "dataset", 
-        "Student Behaviour Detection.v6i.yolov8", 
         "data.yaml"
     )
     
@@ -20,6 +22,7 @@ def train_model():
     
     # 3. 开始模型训练
     # 针对 RTX 2080 Super 优化的训练配置
+    project_path = os.path.join(current_dir, "runs", "detect")
     results = model.train(
         data=dataset_yaml_path,
         epochs=300,          # 既然有1天时间，直接拉到 300 轮（配合 patience 早停机制，绝不会白白浪费时间）
@@ -37,7 +40,7 @@ def train_model():
     # 🧠 【高级训练技巧：适合长时间训练的魔法参数】
         cos_lr=True,         # 开启余弦退火学习率：学习率会像波浪一样平滑下降，适合 300 轮的长线作战，能寻找到更好的最优解
         close_mosaic=20,     # 在最后 20 轮关闭马赛克数据增强：让模型在最后阶段看“真实的完整教室”，对最终精度提升极大
-        project="runs/detect",
+        project=project_path,
         name="student_attention_yolov8s_1024p"
     )
     

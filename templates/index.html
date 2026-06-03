@@ -3,126 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏫 课堂专注度检测与数据看板</title>
+    <title>AI 智慧课堂 - 学生专注度检测系统</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <!-- 背景粒子装饰效果 -->
-    <div class="bg-decor"></div>
-    <div class="bg-decor-2"></div>
-
     <div class="container">
+        <div class="bg-decor"></div>
+        <div class="bg-decor-2"></div>
+
         <header>
-            <h1>🏫 智慧课堂学生专注度检测系统</h1>
-            <p>基于 YOLOv8 视觉算法的实时出勤率与抬头专注度量化分析平台</p>
+            <h1>🏫 智慧课堂专注度管理系统</h1>
+            <p>基于 YOLOv8 的实时教学质量量化分析平台</p>
         </header>
 
-        <!-- 上传卡片 -->
-        <div class="glass-panel upload-card">
-            <div class="drop-zone" id="drop-zone">
-                <span class="drop-zone-icon">📤</span>
-                <p class="drop-zone-text">将教室学生照片拖拽至此，或点击上传</p>
-                <p class="drop-zone-subtext">支持 JPG, JPEG, PNG, BMP 格式</p>
-                
-                <div class="image-preview-container" id="preview-container">
-                    <img id="image-preview" src="#" alt="预览图">
-                    <button type="button" class="remove-preview-btn" id="remove-btn" title="移出文件">&times;</button>
-                </div>
+        <!-- 课堂控制面板 -->
+        <div class="glass-panel control-card">
+            <div class="status-indicator" id="class-status-box">
+                <span class="pulse-dot grey" id="status-dot"></span>
+                <span id="status-text">课堂未开始</span>
             </div>
-
-            <input type="file" id="file-input" accept="image/*">
-
-            <!-- 参数调节与分析按钮 -->
-            <div class="config-group">
-                <div class="conf-slider-wrapper">
-                    <div class="conf-label-row">
-                        <span>置信度阈值 (Confidence)</span>
-                        <span class="conf-val" id="conf-val-display">0.30</span>
-                    </div>
-                    <input type="range" id="conf-slider" min="0.10" max="0.90" step="0.05" value="0.30">
-                </div>
-                
-                <button type="button" class="predict-btn" id="predict-btn" disabled>
-                    <span>⚡ 开始分析图片</span>
+            
+            <div class="button-group">
+                <button type="button" class="action-btn start" id="start-class-btn">
+                    <span class="icon">▶️</span> 开始上课
+                </button>
+                <button type="button" class="action-btn end" id="end-class-btn" disabled>
+                    <span class="icon">⏹️</span> 下课统计
                 </button>
             </div>
         </div>
 
-        <!-- 骨架屏 Loading -->
-        <div class="loading-overlay" id="loading-overlay">
-            <div class="spinner"></div>
-            <h3>正在运行 YOLOv8 神经网络检测中...</h3>
-            <p style="color: var(--text-muted); margin-top: 5px;">这通常需要 1 到 2 秒，请稍后</p>
-        </div>
-
-        <!-- 结果展示看板 -->
-        <div class="results-container" id="results-container">
-            <!-- 统计指标格 -->
-            <div class="stats-grid">
-                <!-- 仪表盘抬头率 -->
-                <div class="glass-panel stat-card gauge-card">
-                    <div class="progress-ring">
-                        <svg width="120" height="120">
-                            <circle class="progress-ring-bg" stroke="rgba(255,255,255,0.03)" stroke-width="8" fill="transparent" r="52" cx="60" cy="60"/>
-                            <circle class="progress-ring-circle" id="ring-circle" stroke="var(--primary)" stroke-width="8" stroke-linecap="round" fill="transparent" r="52" cx="60" cy="60" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
-                        </svg>
-                        <div class="progress-ring-text" id="attention-rate-text">0.0%</div>
-                    </div>
-                    <div class="stat-label">班级整体专注率</div>
-                </div>
-
-                <div class="glass-panel stat-card">
-                    <div class="stat-val total" id="stat-total">0</div>
-                    <div class="stat-label">全班总人数 (YOLO框)</div>
-                </div>
-
-                <div class="glass-panel stat-card">
-                    <div class="stat-val listening" id="stat-listening">0</div>
-                    <div class="stat-label">抬头听讲人数 (🟢)</div>
-                </div>
-
-                <div class="glass-panel stat-card">
-                    <div class="stat-val distracted" id="stat-distracted">0</div>
-                    <div class="stat-label">低头分心人数 (🔴)</div>
-                </div>
-            </div>
-
-            <!-- 图像对比查看器 -->
-            <div class="glass-panel viewer-card">
-                <div class="viewer-header">
-                    <div class="viewer-title">🔍 检测图像对比看板</div>
-                    <div class="viewer-tabs">
-                        <button class="tab-btn active" data-tab="tab-result">检测分析标注图</button>
-                        <button class="tab-btn" data-tab="tab-original">上传原始图片</button>
-                    </div>
-                </div>
-                <div class="images-container">
-                    <div class="image-panel active" id="tab-result">
-                        <img id="result-img-element" src="#" alt="检测结果标注图">
-                    </div>
-                    <div class="image-panel" id="tab-original">
-                        <img id="original-img-element" src="#" alt="原始图片">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 数据明细表格 -->
-            <div class="glass-panel table-card">
-                <div class="table-header">📋 学生个体状态诊断明细</div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>序号</th>
-                                <th>专注判定状态</th>
-                                <th>识别细分动作</th>
-                                <th>识别置信度 (Conf)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <!-- JS 动态渲染数据 -->
-                        </tbody>
-                    </table>
+        <!-- 实时画面监控 -->
+        <div class="glass-panel monitor-card">
+            <div class="monitor-container">
+                <img id="video-stream" src="{{ url_for('video_feed') }}" alt="监控画面连接中...">
+                <div class="monitor-overlay" id="monitor-overlay" style="display: none;">
+                    <div class="ai-active-tag">AI 实时分析中</div>
                 </div>
             </div>
         </div>
@@ -130,203 +46,78 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const dropZone = document.getElementById('drop-zone');
-            const fileInput = document.getElementById('file-input');
-            const imagePreview = document.getElementById('image-preview');
-            const previewContainer = document.getElementById('preview-container');
-            const removeBtn = document.getElementById('remove-btn');
-            const confSlider = document.getElementById('conf-slider');
-            const confValDisplay = document.getElementById('conf-val-display');
-            const predictBtn = document.getElementById('predict-btn');
-            const loadingOverlay = document.getElementById('loading-overlay');
-            const resultsContainer = document.getElementById('results-container');
+            const startBtn = document.getElementById('start-class-btn');
+            const endBtn = document.getElementById('end-class-btn');
+            const statusText = document.getElementById('status-text');
+            const statusDot = document.getElementById('status-dot');
+            const monitorOverlay = document.getElementById('monitor-overlay');
 
-            // SVG 环形进度条常量
-            const ringCircle = document.getElementById('ring-circle');
-            const ringCircumference = 2 * Math.PI * 52; // 326.72
-
-            let selectedFile = null;
-
-            // 1. 置信度滑块事件
-            confSlider.addEventListener('input', (e) => {
-                confValDisplay.textContent = parseFloat(e.target.value).toFixed(2);
-            });
-
-            // 2. 点击上传触发
-            dropZone.addEventListener('click', (e) => {
-                // 如果点击的是删除按钮，不要触发文件选择器
-                if (e.target === removeBtn || removeBtn.contains(e.target)) return;
-                fileInput.click();
-            });
-
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    handleFileSelect(e.target.files[0]);
-                }
-            });
-
-            // 3. 拖拽事件监听
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    dropZone.classList.add('dragover');
-                }, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    dropZone.classList.remove('dragover');
-                }, false);
-            });
-
-            dropZone.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                if (files.length > 0) {
-                    handleFileSelect(files[0]);
-                }
-            });
-
-            // 4. 处理选中的文件并生成预览
-            function handleFileSelect(file) {
-                if (!file.type.startsWith('image/')) {
-                    alert('请选择有效的图片文件！');
-                    return;
-                }
-                selectedFile = file;
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onloadend = () => {
-                    imagePreview.src = reader.result;
-                    previewContainer.style.display = 'block';
-                    predictBtn.disabled = false;
-                };
-            }
-
-            // 5. 移出文件预览
-            removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                resetUploadState();
-            });
-
-            function resetUploadState() {
-                selectedFile = null;
-                fileInput.value = '';
-                imagePreview.src = '#';
-                previewContainer.style.display = 'none';
-                predictBtn.disabled = true;
-                resultsContainer.style.display = 'none';
-            }
-
-            // 6. 发送预测请求
-            predictBtn.addEventListener('click', async () => {
-                if (!selectedFile) return;
-
-                // 切换加载与结果状态
-                predictBtn.disabled = true;
-                resultsContainer.style.display = 'none';
-                loadingOverlay.style.display = 'block';
-
-                // 骨架平滑滚动
-                loadingOverlay.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                formData.append('conf', confSlider.value);
-
+            // 0. 同步状态逻辑
+            async function syncStatus() {
                 try {
-                    const response = await fetch('/predict', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
+                    const response = await fetch('/get_status');
+                    const data = await response.json();
+                    if (data.is_active) {
+                        startBtn.disabled = true;
+                        endBtn.disabled = false;
+                        statusText.textContent = `正在上课 (Session: ${data.session_id})`;
+                        statusDot.className = 'pulse-dot red';
+                        monitorOverlay.style.display = 'block';
+                    } else {
+                        startBtn.disabled = false;
+                        endBtn.disabled = true;
+                        statusText.textContent = '课堂未开始';
+                        statusDot.className = 'pulse-dot grey';
+                        monitorOverlay.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error('Sync status failed:', err);
+                }
+            }
+            syncStatus();
+
+            // 1. 开始上课
+            startBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/start_class', { method: 'POST' });
                     const data = await response.json();
                     
-                    if (data.error) {
-                        alert(data.error);
-                        loadingOverlay.style.display = 'none';
-                        predictBtn.disabled = false;
-                        return;
+                    if (data.status === 'success') {
+                        // 更新 UI 状态
+                        startBtn.disabled = true;
+                        endBtn.disabled = false;
+                        statusText.textContent = `正在上课 (Session: ${data.session_id})`;
+                        statusDot.className = 'pulse-dot red';
+                        monitorOverlay.style.display = 'block';
                     }
-
-                    renderResults(data);
                 } catch (error) {
-                    console.error('Error during prediction:', error);
-                    alert('与服务器通信时发生错误，请稍后再试！');
-                    loadingOverlay.style.display = 'none';
-                    predictBtn.disabled = false;
+                    console.error('Start class error:', error);
+                    alert('启动失败，请检查后端连接');
                 }
             });
 
-            // 7. 渲染检测结果数据到前端
-            function renderResults(data) {
-                // 填充统计指标
-                document.getElementById('stat-total').textContent = data.total;
-                document.getElementById('stat-listening').textContent = data.listening;
-                document.getElementById('stat-distracted').textContent = data.distracted;
-                document.getElementById('attention-rate-text').textContent = data.attention_rate;
+            // 2. 下课统计
+            endBtn.addEventListener('click', async () => {
+                if (!confirm('确定要下课并生成统计报告吗？')) return;
 
-                // 更新圆环进度条
-                const rateNum = parseFloat(data.attention_rate);
-                const offset = ringCircumference - (rateNum / 100) * ringCircumference;
-                ringCircle.style.strokeDashoffset = offset;
+                try {
+                    const response = await fetch('/end_class', { method: 'POST' });
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        // 更新 UI 状态
+                        startBtn.disabled = false;
+                        endBtn.disabled = true;
+                        statusText.textContent = '课堂已结束，数据已发送至管理端';
+                        statusDot.className = 'pulse-dot grey';
+                        monitorOverlay.style.display = 'none';
 
-                // 载入对比图片
-                document.getElementById('original-img-element').src = data.uploaded_image_url;
-                document.getElementById('result-img-element').src = data.result_image_url;
-
-                // 填充表格列表
-                const tableBody = document.getElementById('table-body');
-                tableBody.innerHTML = ''; // 清空上一轮内容
-
-                if (data.students.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">未在图片中检测到任何学生</td></tr>`;
-                } else {
-                    data.students.forEach(student => {
-                        const tr = document.createElement('tr');
-                        const statusClass = student.status === 'Listening' ? 'badge-listening' : 'badge-distracted';
-                        const statusEmoji = student.status === 'Listening' ? '🟢' : '🔴';
-                        
-                        tr.innerHTML = `
-                            <td>${student.id}</td>
-                            <td><span class="badge ${statusClass}">${statusEmoji} ${student.status_cn}</span></td>
-                            <td style="font-weight:600;">${student.label_cn}</td>
-                            <td>${student.confidence}</td>
-                        `;
-                        tableBody.appendChild(tr);
-                    });
+                        alert(`下课成功！\n本节课平均抬头率: ${data.report.avg_attention_rate}\n报告已发送至管理端。`);
+                    }
+                } catch (error) {
+                    console.error('End class error:', error);
+                    alert('提交失败');
                 }
-
-                // 隐藏 loading，展示结果
-                loadingOverlay.style.display = 'none';
-                resultsContainer.style.display = 'block';
-                predictBtn.disabled = false;
-
-                // 平滑滑动至结果部分
-                setTimeout(() => {
-                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
-            }
-
-            // 8. 选项卡切换对比图
-            const tabButtons = document.querySelectorAll('.tab-btn');
-            const imagePanels = document.querySelectorAll('.image-panel');
-
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    // 清除所有 tab 激活状态
-                    tabButtons.forEach(t => t.classList.remove('active'));
-                    imagePanels.forEach(p => p.classList.remove('active'));
-
-                    // 激活当前 tab
-                    btn.classList.add('active');
-                    const targetId = btn.getAttribute('data-tab');
-                    document.getElementById(targetId).classList.add('active');
-                });
             });
         });
     </script>

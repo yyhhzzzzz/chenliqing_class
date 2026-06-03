@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理端 - 课堂专注度统计看板</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .report-list {
+            margin-bottom: 30px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-panel {
+            height: 400px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+        .back-btn:hover {
+            color: var(--primary);
+        }
+        .report-item {
+            cursor: pointer;
+            padding: 15px;
+            border-bottom: 1px solid var(--panel-border);
+            transition: var(--transition);
+        }
+        .report-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .report-item.active {
+            border-left: 4px solid var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <a href="/" class="back-btn">← 返回课堂监控</a>
+        <header>
+            <h1>📊 管理端统计看板</h1>
+            <p>全量历史课堂专注度深度分析</p>
+        </header>
+
+        <div class="glass-panel report-list">
+            <h3>历史报告列表</h3>
+            <div id="reports-container">
+                <p>正在加载历史数据...</p>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-panel" id="attention-chart"></div>
+            <div class="chart-panel" id="students-chart"></div>
+        </div>
+    </div>
+
+    <script>
+        let attentionChart, studentsChart;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            attentionChart = echarts.init(document.getElementById('attention-chart'), 'dark');
+            studentsChart = echarts.init(document.getElementById('students-chart'), 'dark');
+            loadReports();
+        });
+
+        async function loadReports() {
+            try {
+                const response = await fetch('/api/reports');
+                const reports = await response.json();
+                
+                const container = document.getElementById('reports-container');
+                if (reports.length === 0) {
+                    container.innerHTML = '<p>暂无历史报告</p>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                reports.forEach((report, index) => {
+                    const div = document.createElement('div');
+                    div.className = `report-item ${index === 0 ? 'active' : ''}`;
+                    div.innerHTML = `
+                        <strong>Session: ${report.session_id}</strong> | 
+                        日期: ${report.date} | 
+                        平均抬头率: <span style="color:var(--primary)">${report.avg_attention_rate}</span> | 
+                        时长: ${report.duration_seconds}s
+                    `;
+                    div.onclick = () => {
+                        document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
+                        div.classList.add('active');
+                        // 这里可以扩展加载该报告的详细图表数据
+                        // 目前我们只展示汇总数据图表
+                        updateSummaryCharts(reports);
+                    };
+                    container.appendChild(div);
+                });
+
+                updateSummaryCharts(reports);
+            } catch (err) {
+                console.error('Load reports failed:', err);
+            }
+        }
+
+        function updateSummaryCharts(reports) {
+            // 趋势图：最近10场课堂的平均专注度
+            const last10 = reports.slice(0, 10).reverse();
+            
+            const attentionOption = {
+                title: { text: '近期专注度趋势' },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: last10.map(r => r.date.split(' ')[0]) },
+                yAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+                series: [{
+                    data: last10.map(r => parseFloat(r.avg_attention_rate)),
+                    type: 'line',
+                    smooth: true,
+                    color: '#6366f1',
+                    areaStyle: { opacity: 0.2 }
+                }]
+            };
+
+            const studentsOption = {
+                title: { text: '各场次最高在线人数' },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: last10.map(r => r.session_id) },
+                yAxis: { type: 'value' },
+                series: [{
+                    data: last10.map(r => r.max_students_count),
+                    type: 'bar',
+                    color: '#10b981'
+                }]
+            };
+
+            attentionChart.setOption(attentionOption);
+            studentsChart.setOption(studentsOption);
+        }
+
+        window.addEventListener('resize', () => {
+            attentionChart.resize();
+            studentsChart.resize();
+        });
+    </script>
+</body>
+</html>
