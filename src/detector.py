@@ -6,6 +6,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import cv2
 import tempfile
 from ultralytics import YOLO, settings
+import threading
 from glob import glob
 
 # 重定向 ultralytics 生成的 runs 文件夹到系统临时目录下，防止污染项目根目录
@@ -55,6 +56,7 @@ LABEL_CN_MAPPING = {
 class ClassroomDetector:
     def __init__(self):
         self.model = None
+        self.lock = threading.Lock()
         self.load_model()
 
     def find_best_model(self):
@@ -98,8 +100,9 @@ class ClassroomDetector:
         if not self.model:
             return frame, {"total": 0, "listening": 0, "distracted": 0, "attention_rate": "0%"}
 
-        # 1. 运行 YOLOv8 预测
-        results = self.model.predict(source=frame, conf=conf_threshold, save=False, verbose=False)[0]
+        # 1. 运行 YOLOv8 预测 (使用线程锁防止多并发下的 AttributeError: bn 冲突)
+        with self.lock:
+            results = self.model.predict(source=frame, conf=conf_threshold, save=False, verbose=False)[0]
 
         COLOR_LISTENING = (0, 200, 0)      # 绿色 (BGR)
         COLOR_DISTRACTED = (0, 0, 225)     # 红色 (BGR)
@@ -151,8 +154,9 @@ class ClassroomDetector:
         if not self.model:
             return None, "模型未加载，请确保 best.pt 存在。"
 
-        # 1. 运行 YOLOv8 预测
-        results = self.model.predict(source=image_path, conf=conf_threshold, save=False)[0]
+        # 1. 运行 YOLOv8 预测 (使用线程锁防止并发冲突)
+        with self.lock:
+            results = self.model.predict(source=image_path, conf=conf_threshold, save=False)[0]
 
         # 2. 读取原始图片并用 OpenCV 绘制
         img = cv2.imread(image_path)
