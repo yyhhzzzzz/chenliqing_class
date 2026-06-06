@@ -42,6 +42,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- 实时统计数据面板 -->
+        <div class="glass-panel stats-card">
+            <h3>📈 实时课堂数据</h3>
+            <div class="realtime-stats-grid">
+                <div class="rt-stat-item">
+                    <span class="rt-label">当前总人数</span>
+                    <span class="rt-value" id="stat-total">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">出勤人数</span>
+                    <span class="rt-value listening" id="stat-listening">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">分心人数</span>
+                    <span class="rt-value distracted" id="stat-distracted">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">抬头率</span>
+                    <span class="rt-value attention" id="stat-attention">0.0%</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -51,6 +74,14 @@
             const statusText = document.getElementById('status-text');
             const statusDot = document.getElementById('status-dot');
             const monitorOverlay = document.getElementById('monitor-overlay');
+
+            // 实时统计元素
+            const statTotal = document.getElementById('stat-total');
+            const statListening = document.getElementById('stat-listening');
+            const statDistracted = document.getElementById('stat-distracted');
+            const statAttention = document.getElementById('stat-attention');
+
+            let statsInterval = null;
 
             // 0. 同步状态逻辑
             async function syncStatus() {
@@ -63,18 +94,63 @@
                         statusText.textContent = `正在上课 (Session: ${data.session_id})`;
                         statusDot.className = 'pulse-dot red';
                         monitorOverlay.style.display = 'block';
+                        startStatsUpdate();
                     } else {
                         startBtn.disabled = false;
                         endBtn.disabled = true;
                         statusText.textContent = '课堂未开始';
                         statusDot.className = 'pulse-dot grey';
                         monitorOverlay.style.display = 'none';
+                        stopStatsUpdate();
+                        clearStats();
                     }
                 } catch (err) {
                     console.error('Sync status failed:', err);
                 }
             }
             syncStatus();
+
+            // 获取实时统计数据
+            async function fetchStats() {
+                try {
+                    const response = await fetch('/latest_stats');
+                    const data = await response.json();
+                    updateStatsDisplay(data);
+                } catch (err) {
+                    console.error('Fetch stats failed:', err);
+                }
+            }
+
+            // 更新统计显示
+            function updateStatsDisplay(stats) {
+                statTotal.textContent = stats.total || 0;
+                statListening.textContent = stats.listening || 0;
+                statDistracted.textContent = stats.distracted || 0;
+                statAttention.textContent = stats.attention_rate || '0.0%';
+            }
+
+            // 清空统计显示
+            function clearStats() {
+                statTotal.textContent = '0';
+                statListening.textContent = '0';
+                statDistracted.textContent = '0';
+                statAttention.textContent = '0.0%';
+            }
+
+            // 开始定时更新统计
+            function startStatsUpdate() {
+                if (statsInterval) return;
+                fetchStats();
+                statsInterval = setInterval(fetchStats, 3000);
+            }
+
+            // 停止定时更新
+            function stopStatsUpdate() {
+                if (statsInterval) {
+                    clearInterval(statsInterval);
+                    statsInterval = null;
+                }
+            }
 
             // 1. 开始上课
             startBtn.addEventListener('click', async () => {
@@ -89,6 +165,7 @@
                         statusText.textContent = `正在上课 (Session: ${data.session_id})`;
                         statusDot.className = 'pulse-dot red';
                         monitorOverlay.style.display = 'block';
+                        startStatsUpdate();
                     }
                 } catch (error) {
                     console.error('Start class error:', error);
@@ -111,6 +188,8 @@
                         statusText.textContent = '课堂已结束，数据已发送至管理端';
                         statusDot.className = 'pulse-dot grey';
                         monitorOverlay.style.display = 'none';
+                        stopStatsUpdate();
+                        clearStats();
 
                         alert(`下课成功！\n本节课平均抬头率: ${data.report.avg_attention_rate}\n报告已发送至管理端。`);
                     }
