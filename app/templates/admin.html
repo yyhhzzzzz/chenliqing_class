@@ -116,6 +116,37 @@
             <p>全量历史课堂专注度深度分析</p>
         </header>
 
+        <!-- 实时课堂数据面板 -->
+        <div class="glass-panel live-stats-card">
+            <div class="live-header">
+                <h3>🔴 实时课堂监控</h3>
+                <span class="live-status" id="live-status">离线</span>
+            </div>
+            <div class="realtime-stats-grid">
+                <div class="rt-stat-item">
+                    <span class="rt-label">当前总人数</span>
+                    <span class="rt-value" id="live-total">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">出勤人数</span>
+                    <span class="rt-value listening" id="live-listening">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">分心人数</span>
+                    <span class="rt-value distracted" id="live-distracted">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">实时抬头率</span>
+                    <span class="rt-value attention" id="live-attention">0.0%</span>
+                </div>
+            </div>
+            <div class="session-info" id="session-info" style="display: none;">
+                <span>当前 Session: </span>
+                <span id="session-id">N/A</span>
+                <span class="duration" id="class-duration">00:00:00</span>
+            </div>
+        </div>
+
         <!-- 历史会话列表 -->
         <div class="glass-panel report-list">
             <h3 style="margin-bottom: 15px; font-weight: 600;">📋 历史课堂报告列表</h3>
@@ -160,6 +191,9 @@
 
     <script>
         let attentionChart, studentsChart;
+        let statsInterval = null;
+        let classStartTime = null;
+        let durationInterval = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化 ECharts，配置为默认明亮主题
@@ -173,7 +207,95 @@
             });
 
             loadReports();
+            startLiveStatsUpdate();
         });
+
+        // 实时统计元素
+        const liveStatus = document.getElementById('live-status');
+        const liveTotal = document.getElementById('live-total');
+        const liveListening = document.getElementById('live-listening');
+        const liveDistracted = document.getElementById('live-distracted');
+        const liveAttention = document.getElementById('live-attention');
+        const sessionInfo = document.getElementById('session-info');
+        const sessionId = document.getElementById('session-id');
+        const classDuration = document.getElementById('class-duration');
+
+        // 获取实时课堂状态
+        async function fetchClassStatus() {
+            try {
+                const response = await fetch('/get_status');
+                const data = await response.json();
+                if (data.is_active) {
+                    liveStatus.textContent = '在线';
+                    liveStatus.className = 'live-status online';
+                    sessionInfo.style.display = 'block';
+                    sessionId.textContent = data.session_id;
+                    if (!classStartTime) {
+                        classStartTime = data.start_time;
+                    }
+                    startDurationTimer();
+                } else {
+                    liveStatus.textContent = '离线';
+                    liveStatus.className = 'live-status offline';
+                    sessionInfo.style.display = 'none';
+                    classStartTime = null;
+                    stopDurationTimer();
+                }
+            } catch (err) {
+                console.error('Fetch class status failed:', err);
+            }
+        }
+
+        // 获取实时统计数据
+        async function fetchLiveStats() {
+            try {
+                const response = await fetch('/latest_stats');
+                const data = await response.json();
+                liveTotal.textContent = data.total || 0;
+                liveListening.textContent = data.listening || 0;
+                liveDistracted.textContent = data.distracted || 0;
+                liveAttention.textContent = data.attention_rate || '0.0%';
+            } catch (err) {
+                console.error('Fetch live stats failed:', err);
+            }
+        }
+
+        // 更新上课时长
+        function updateDuration() {
+            if (!classStartTime) return;
+            const elapsed = Math.floor(Date.now() / 1000 - classStartTime);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            classDuration.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 开始时长计时器
+        function startDurationTimer() {
+            if (durationInterval) return;
+            updateDuration();
+            durationInterval = setInterval(updateDuration, 1000);
+        }
+
+        // 停止时长计时器
+        function stopDurationTimer() {
+            if (durationInterval) {
+                clearInterval(durationInterval);
+                durationInterval = null;
+            }
+            classDuration.textContent = '00:00:00';
+        }
+
+        // 开始定时更新实时数据
+        function startLiveStatsUpdate() {
+            if (statsInterval) return;
+            fetchClassStatus();
+            fetchLiveStats();
+            statsInterval = setInterval(() => {
+                fetchClassStatus();
+                fetchLiveStats();
+            }, 3000);
+        }
 
         // 加载历史会话报告
         async function loadReports() {
