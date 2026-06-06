@@ -62,41 +62,18 @@
                 <div class="realtime-stats-grid">
                     <div class="rt-stat-item">
                         <span class="rt-label">👥 当前人数</span>
-                        <span class="rt-value" id="rt-total">0</span>
-                    </div>
-                    <div class="rt-stat-item">
-                        <span class="rt-label">🟢 专注人数</span>
-                        <span class="rt-value" style="color: var(--success);" id="rt-listening">0</span>
-                    </div>
-                    <div class="rt-stat-item">
-                        <span class="rt-label">🔴 分心人数</span>
-                        <span class="rt-value" style="color: var(--danger);" id="rt-distracted">0</span>
-                    </div>
-                    <div class="rt-stat-item">
-                        <span class="rt-label">📈 实时抬头率</span>
-                        <span class="rt-value" id="rt-attention-rate">0.0%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 实时统计数据面板 -->
-            <div class="glass-panel stats-card" style="grid-column: span 2; margin-top: 10px; width: 100%;">
-                <h3 style="margin-bottom: 15px; font-weight: 600;">📈 实时课堂数据</h3>
-                <div class="realtime-stats-grid">
-                    <div class="rt-stat-item">
-                        <span class="rt-label">当前总人数</span>
                         <span class="rt-value" id="stat-total">0</span>
                     </div>
                     <div class="rt-stat-item">
-                        <span class="rt-label">出勤人数</span>
+                        <span class="rt-label">🟢 专注人数</span>
                         <span class="rt-value listening" id="stat-listening">0</span>
                     </div>
                     <div class="rt-stat-item">
-                        <span class="rt-label">分心人数</span>
+                        <span class="rt-label">🔴 分心人数</span>
                         <span class="rt-value distracted" id="stat-distracted">0</span>
                     </div>
                     <div class="rt-stat-item">
-                        <span class="rt-label">抬头率</span>
+                        <span class="rt-label">📈 实时抬头率</span>
                         <span class="rt-value attention" id="stat-attention">0.0%</span>
                     </div>
                 </div>
@@ -248,12 +225,13 @@
             const loadingOverlay = document.getElementById('loading-overlay');
             const resultsContainer = document.getElementById('results-container');
 
+            // 离线检测结果看板数据节点
             const resTotal = document.getElementById('res-total');
             const resListening = document.getElementById('res-listening');
             const resDistracted = document.getElementById('res-distracted');
             const resAttentionRate = document.getElementById('res-attention-rate');
             
-            // 底部实时统计数据面板
+            // 实时监控看板数据节点
             const statTotal = document.getElementById('stat-total');
             const statListening = document.getElementById('stat-listening');
             const statDistracted = document.getElementById('stat-distracted');
@@ -291,11 +269,6 @@
                         const response = await fetch('/latest_stats');
                         if (response.ok) {
                             const stats = await response.json();
-                            document.getElementById('rt-total').textContent = stats.total;
-                            document.getElementById('rt-listening').textContent = stats.listening;
-                            document.getElementById('rt-distracted').textContent = stats.distracted;
-                            document.getElementById('rt-attention-rate').textContent = stats.attention_rate;
-                            
                             if (statTotal) statTotal.textContent = stats.total;
                             if (statListening) statListening.textContent = stats.listening;
                             if (statDistracted) statDistracted.textContent = stats.distracted;
@@ -313,11 +286,6 @@
                     statsInterval = null;
                 }
                 // 重置指标
-                document.getElementById('rt-total').textContent = '0';
-                document.getElementById('rt-listening').textContent = '0';
-                document.getElementById('rt-distracted').textContent = '0';
-                document.getElementById('rt-attention-rate').textContent = '0.0%';
-                
                 if (statTotal) statTotal.textContent = '0';
                 if (statListening) statListening.textContent = '0';
                 if (statDistracted) statDistracted.textContent = '0';
