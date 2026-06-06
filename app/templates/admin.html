@@ -104,7 +104,13 @@
         <div class="bg-decor"></div>
         <div class="bg-decor-2"></div>
 
-        <a href="/" class="back-btn">⬅️ 返回课堂监控</a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <a href="/" class="back-btn" style="margin-bottom: 0;">⬅️ 返回课堂监控</a>
+            <div class="user-bar" style="display: flex; align-items: center; gap: 15px; font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">👤 登录教师: <strong style="color: var(--text-main);">{{ session['username'] }}</strong></span>
+                <a href="{{ url_for('main.logout') }}" style="color: var(--danger); text-decoration: none; font-weight: 500; padding: 6px 12px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.12); border-radius: 20px; transition: var(--transition);" onmouseover="this.style.background='var(--danger)'; this.style.color='white'" onmouseout="this.style.background='rgba(220, 38, 38, 0.08)'; this.style.color='var(--danger)'">🚪 退出登录</a>
+            </div>
+        </div>
         <header>
             <h1>📊 管理端统计看板</h1>
             <p>全量历史课堂专注度深度分析</p>

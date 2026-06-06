@@ -42,9 +42,15 @@ yolo26n.pt
 yolov8n.pt
 
 # Flask static uploads and outputs
-static/uploads/
-static/outputs/
+app/static/uploads/
+app/static/outputs/
 
 # Test prediction outputs and materials
 test/
 
+# Database and Security Keys
+classroom.db
+secret_key.txt
+
+# Generated reports
+reports/

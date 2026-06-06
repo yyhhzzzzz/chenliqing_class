@@ -13,6 +13,11 @@
         <div class="bg-decor-2"></div>
 
         <header>
+            <div class="user-bar" style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: -15px; font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">👤 登录教师: <strong style="color: var(--text-main);">{{ session['username'] }}</strong></span>
+                <a href="{{ url_for('main.admin') }}" class="admin-link" style="padding: 6px 12px; font-size: 0.85rem;">📊 管理端</a>
+                <a href="{{ url_for('main.logout') }}" style="color: var(--danger); text-decoration: none; font-weight: 500; padding: 6px 12px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.12); border-radius: 20px; transition: var(--transition);" onmouseover="this.style.background='var(--danger)'; this.style.color='white'" onmouseout="this.style.background='rgba(220, 38, 38, 0.08)'; this.style.color='var(--danger)'">🚪 退出登录</a>
+            </div>
             <h1>🏫 智慧课堂专注度管理系统</h1>
             <p>基于 YOLOv8 的实时教学质量量化分析平台</p>
         </header>
@@ -28,7 +33,7 @@
             <!-- 实时画面监控 -->
             <div class="glass-panel monitor-card">
                 <div class="monitor-container">
-                    <img id="video-stream" src="{{ url_for('video_feed') }}" alt="监控画面连接中...">
+                    <img id="video-stream" src="{{ url_for('main.video_feed') }}" alt="监控画面连接中...">
                     <div class="monitor-overlay" id="monitor-overlay" style="display: none;">
                         <div class="ai-active-tag">AI 实时分析中</div>
                     </div>
@@ -79,6 +84,8 @@
         <div class="upload-layout" id="upload-section" style="display: none;">
             <div class="glass-panel upload-card">
                 <form id="upload-form" enctype="multipart/form-data">
+                    <!-- CSRF 防护标签 -->
+                    <input type="hidden" name="csrf_token" id="upload-csrf-token" value="{{ csrf_token() }}">
                     <div class="drop-zone" id="drop-zone">
                         <span class="drop-zone-icon">📁</span>
                         <p class="drop-zone-text">将教室图片拖拽至此，或点击选择文件</p>
@@ -173,6 +180,18 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义玻璃态确认模态弹窗 -->
+    <div id="custom-confirm-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <h3 class="modal-title">⚠️ 确认下课</h3>
+            <p class="modal-message">确定要结束当前课程并生成统计报告吗？</p>
+            <div class="modal-btn-group">
+                <button type="button" class="modal-btn cancel" id="modal-cancel-btn">取消</button>
+                <button type="button" class="modal-btn confirm" id="modal-confirm-btn">确定下课</button>
             </div>
         </div>
     </div>
@@ -292,10 +311,25 @@
             }
             syncStatus();
 
+            const confirmModal = document.getElementById('custom-confirm-modal');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            const confirmActionBtn = document.getElementById('modal-confirm-btn');
+
             // 开始上课
             startBtn.addEventListener('click', async () => {
+                startBtn.disabled = true;
                 try {
-                    const response = await fetch('/start_class', { method: 'POST' });
+                    const response = await fetch('/start_class', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
                     const data = await response.json();
                     
                     if (data.status === 'success') {
@@ -305,19 +339,47 @@
                         statusDot.className = 'pulse-dot red';
                         monitorOverlay.style.display = 'block';
                         startPolling();
+                    } else {
+                        alert(`上课失败：${data.message || '未知错误'}`);
+                        startBtn.disabled = false;
                     }
                 } catch (error) {
                     console.error('Start class error:', error);
+                    alert(`启动上课失败：${error.message || '网络连接错误，请检查后端连接。'}`);
+                    startBtn.disabled = false;
                 }
             });
 
-            // 下课统计
-            endBtn.addEventListener('click', async () => {
-                // TODO(security): 使用前端遮罩或自定义 Modal 代替 native confirm。此处暂保留，在管理端我们全面使用 safe DOM。
-                if (!confirm('确定要下课并生成统计报告吗？')) return;
+            // 显示自定义确认弹窗
+            endBtn.addEventListener('click', () => {
+                confirmModal.style.display = 'flex';
+            });
+
+            // 点击取消关闭弹窗
+            cancelBtn.addEventListener('click', () => {
+                confirmModal.style.display = 'none';
+            });
+
+            // 确定下课逻辑
+            confirmActionBtn.addEventListener('click', async () => {
+                confirmModal.style.display = 'none';
+                
+                // 禁用按钮防重复提交
+                endBtn.disabled = true;
+                confirmActionBtn.disabled = true;
 
                 try {
-                    const response = await fetch('/end_class', { method: 'POST' });
+                    const response = await fetch('/end_class', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
                     const data = await response.json();
                     
                     if (data.status === 'success') {
@@ -330,9 +392,16 @@
 
                         // 弹框通知
                         alert(`下课成功！\n本节课平均抬头率: ${data.report.avg_attention_rate}\n报告已发送至管理端。`);
+                    } else {
+                        alert(`下课失败：${data.message || '未知错误'}`);
+                        endBtn.disabled = false;
                     }
                 } catch (error) {
                     console.error('End class error:', error);
+                    alert(`下课请求失败：${error.message || '网络连接超时或凭证失效，请刷新页面重试。'}`);
+                    endBtn.disabled = false;
+                } finally {
+                    confirmActionBtn.disabled = false;
                 }
             });
 
@@ -423,6 +492,7 @@
                 const formData = new FormData();
                 formData.append('file', fileInput.files[0]);
                 formData.append('conf', confRange.value);
+                formData.append('csrf_token', document.getElementById('upload-csrf-token').value);
 
                 try {
                     const response = await fetch('/predict', {
