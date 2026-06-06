@@ -227,4 +227,5 @@ if __name__ == '__main__':
     print(f"{'='*50}\n")
     
     # 绑定 5001 端口，避开 macOS 默认的 AirPlay Receiver (5000 端口)
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # TODO(security): Bind to localhost for security during testing/dev
+    app.run(host='127.0.0.1', port=5001, debug=True)
