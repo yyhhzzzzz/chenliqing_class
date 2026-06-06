@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理端 - 课堂专注度统计看板</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .report-list {
+            margin-bottom: 30px;
+        }
+        .reports-wrapper {
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+        }
+        /* 美化报告列表的滚动条 */
+        .reports-wrapper::-webkit-scrollbar {
+            width: 6px;
+        }
+        .reports-wrapper::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 3px;
+        }
+        .reports-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        .reports-wrapper::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-panel {
+            height: 400px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        .back-btn:hover {
+            color: var(--primary);
+            transform: translateX(-4px);
+        }
+        .report-item {
+            cursor: pointer;
+            padding: 15px;
+            border-bottom: 1px solid var(--panel-border);
+            transition: var(--transition);
+            border-radius: 8px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .report-item:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        .report-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            padding-left: 20px;
+        }
+        .report-item.active {
+            border-left: 4px solid var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            padding-left: 20px;
+        }
+        .report-item-meta {
+            display: flex;
+            gap: 15px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- 装饰背景粒子 -->
+        <div class="bg-decor"></div>
+        <div class="bg-decor-2"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <a href="/" class="back-btn" style="margin-bottom: 0;">⬅️ 返回课堂监控</a>
+            <div class="user-bar" style="display: flex; align-items: center; gap: 15px; font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">👤 登录教师: <strong style="color: var(--text-main);">{{ session['username'] }}</strong></span>
+                <a href="{{ url_for('main.logout') }}" style="color: var(--danger); text-decoration: none; font-weight: 500; padding: 6px 12px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.12); border-radius: 20px; transition: var(--transition);" onmouseover="this.style.background='var(--danger)'; this.style.color='white'" onmouseout="this.style.background='rgba(220, 38, 38, 0.08)'; this.style.color='var(--danger)'">🚪 退出登录</a>
+            </div>
+        </div>
+        <header>
+            <h1>📊 管理端统计看板</h1>
+            <p>全量历史课堂专注度深度分析</p>
+        </header>
+
+        <!-- 实时课堂数据面板 -->
+        <div class="glass-panel live-stats-card">
+            <div class="live-header">
+                <h3>🔴 实时课堂监控</h3>
+                <span class="live-status" id="live-status">离线</span>
+            </div>
+            <div class="realtime-stats-grid">
+                <div class="rt-stat-item">
+                    <span class="rt-label">当前总人数</span>
+                    <span class="rt-value" id="live-total">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">出勤人数</span>
+                    <span class="rt-value listening" id="live-listening">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">分心人数</span>
+                    <span class="rt-value distracted" id="live-distracted">0</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">实时抬头率</span>
+                    <span class="rt-value attention" id="live-attention">0.0%</span>
+                </div>
+            </div>
+            <div class="session-info" id="session-info" style="display: none;">
+                <span>当前 Session: </span>
+                <span id="session-id">N/A</span>
+                <span class="duration" id="class-duration">00:00:00</span>
+            </div>
+        </div>
+
+        <!-- 历史会话列表 -->
+        <div class="glass-panel report-list">
+            <h3 style="margin-bottom: 15px; font-weight: 600;">📋 历史课堂报告列表</h3>
+            <div class="reports-wrapper" id="reports-container">
+                <p style="color: var(--text-muted);">正在加载历史数据...</p>
+            </div>
+        </div>
+
+        <!-- 选中课堂详情面板 -->
+        <div class="glass-panel report-detail-card" id="detail-panel" style="margin-bottom: 30px; display: none;">
+            <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">📌 选中会话详情分析</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="rt-stat-item">
+                    <span class="rt-label">🔑 课堂会话 ID</span>
+                    <span class="rt-value" id="detail-session-id" style="font-size: 1.25rem;">-</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">📅 课堂日期</span>
+                    <span class="rt-value" id="detail-date" style="font-size: 1.25rem; color: var(--text-main);">-</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">⏱️ 上课时长</span>
+                    <span class="rt-value" id="detail-duration" style="font-size: 1.25rem; color: var(--success);">-</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">📈 平均专注度</span>
+                    <span class="rt-value" id="detail-avg-attention" style="font-size: 1.25rem; color: var(--primary);">-</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">👥 最高学生人数</span>
+                    <span class="rt-value" id="detail-max-students" style="font-size: 1.25rem; color: var(--text-main);">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 趋势图网格 -->
+        <div class="charts-grid">
+            <div class="chart-panel" id="attention-chart"></div>
+            <div class="chart-panel" id="students-chart"></div>
+        </div>
+    </div>
+
+    <script>
+        let attentionChart, studentsChart;
+        let statsInterval = null;
+        let classStartTime = null;
+        let durationInterval = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化 ECharts，配置为默认明亮主题
+            attentionChart = echarts.init(document.getElementById('attention-chart'));
+            studentsChart = echarts.init(document.getElementById('students-chart'));
+            
+            // 响应窗口伸缩
+            window.addEventListener('resize', () => {
+                attentionChart.resize();
+                studentsChart.resize();
+            });
+
+            loadReports();
+            startLiveStatsUpdate();
+        });
+
+        // 实时统计元素
+        const liveStatus = document.getElementById('live-status');
+        const liveTotal = document.getElementById('live-total');
+        const liveListening = document.getElementById('live-listening');
+        const liveDistracted = document.getElementById('live-distracted');
+        const liveAttention = document.getElementById('live-attention');
+        const sessionInfo = document.getElementById('session-info');
+        const sessionId = document.getElementById('session-id');
+        const classDuration = document.getElementById('class-duration');
+
+        // 获取实时课堂状态
+        async function fetchClassStatus() {
+            try {
+                const response = await fetch('/get_status');
+                const data = await response.json();
+                if (data.is_active) {
+                    liveStatus.textContent = '在线';
+                    liveStatus.className = 'live-status online';
+                    sessionInfo.style.display = 'block';
+                    sessionId.textContent = data.session_id;
+                    if (!classStartTime) {
+                        classStartTime = data.start_time;
+                    }
+                    startDurationTimer();
+                } else {
+                    liveStatus.textContent = '离线';
+                    liveStatus.className = 'live-status offline';
+                    sessionInfo.style.display = 'none';
+                    classStartTime = null;
+                    stopDurationTimer();
+                }
+            } catch (err) {
+                console.error('Fetch class status failed:', err);
+            }
+        }
+
+        // 获取实时统计数据
+        async function fetchLiveStats() {
+            try {
+                const response = await fetch('/latest_stats');
+                const data = await response.json();
+                liveTotal.textContent = data.total || 0;
+                liveListening.textContent = data.listening || 0;
+                liveDistracted.textContent = data.distracted || 0;
+                liveAttention.textContent = data.attention_rate || '0.0%';
+            } catch (err) {
+                console.error('Fetch live stats failed:', err);
+            }
+        }
+
+        // 更新上课时长
+        function updateDuration() {
+            if (!classStartTime) return;
+            const elapsed = Math.floor(Date.now() / 1000 - classStartTime);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            classDuration.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 开始时长计时器
+        function startDurationTimer() {
+            if (durationInterval) return;
+            updateDuration();
+            durationInterval = setInterval(updateDuration, 1000);
+        }
+
+        // 停止时长计时器
+        function stopDurationTimer() {
+            if (durationInterval) {
+                clearInterval(durationInterval);
+                durationInterval = null;
+            }
+            classDuration.textContent = '00:00:00';
+        }
+
+        // 开始定时更新实时数据
+        function startLiveStatsUpdate() {
+            if (statsInterval) return;
+            fetchClassStatus();
+            fetchLiveStats();
+            statsInterval = setInterval(() => {
+                fetchClassStatus();
+                fetchLiveStats();
+            }, 3000);
+        }
+
+        // 加载历史会话报告
+        async function loadReports() {
+            try {
+                const response = await fetch('/api/reports');
+                const reports = await response.json();
+                
+                const container = document.getElementById('reports-container');
+                if (reports.length === 0) {
+                    container.replaceChildren();
+                    const p = document.createElement('p');
+                    p.style.color = 'var(--text-muted)';
+                    p.textContent = '暂无历史报告';
+                    container.appendChild(p);
+                    return;
+                }
+
+                container.replaceChildren(); // 清空容器 (XSS-free)
+
+                reports.forEach((report, index) => {
+                    const div = document.createElement('div');
+                    div.className = `report-item ${index === 0 ? 'active' : ''}`;
+                    
+                    // 构建左半部 Session title
+                    const sessionSpan = document.createElement('span');
+                    const strong = document.createElement('strong');
+                    strong.textContent = `Session: ${report.session_id}`;
+                    sessionSpan.appendChild(strong);
+                    div.appendChild(sessionSpan);
+
+                    // 构建右半部元数据
+                    const metaDiv = document.createElement('div');
+                    metaDiv.className = 'report-item-meta';
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.textContent = `📅 ${report.date}`;
+                    metaDiv.appendChild(dateSpan);
+
+                    const rateSpan = document.createElement('span');
+                    rateSpan.textContent = '📈 ';
+                    const rateVal = document.createElement('span');
+                    rateVal.style.color = 'var(--primary)';
+                    rateVal.style.fontWeight = '600';
+                    rateVal.textContent = report.avg_attention_rate;
+                    rateSpan.appendChild(rateVal);
+                    metaDiv.appendChild(rateSpan);
+
+                    const durationSpan = document.createElement('span');
+                    durationSpan.textContent = `⏱️ ${report.duration_seconds}s`;
+                    metaDiv.appendChild(durationSpan);
+
+                    div.appendChild(metaDiv);
+
+                    // 绑定选择联动逻辑
+                    div.addEventListener('click', () => {
+                        document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
+                        div.classList.add('active');
+                        showReportDetail(report);
+                    });
+
+                    container.appendChild(div);
+                });
+
+                // 默认展示第一场课堂的详细分析
+                showReportDetail(reports[0]);
+                updateSummaryCharts(reports);
+            } catch (err) {
+                console.error('Load reports failed:', err);
+                const container = document.getElementById('reports-container');
+                container.replaceChildren();
+                const p = document.createElement('p');
+                p.style.color = 'var(--danger)';
+                p.textContent = '加载历史报告失败，请检查后端连接';
+                container.appendChild(p);
+            }
+        }
+
+        // 显示选中报告的详细数据
+        function showReportDetail(report) {
+            if (!report) return;
+            document.getElementById('detail-session-id').textContent = report.session_id;
+            document.getElementById('detail-date').textContent = report.date;
+            document.getElementById('detail-duration').textContent = `${report.duration_seconds} 秒`;
+            document.getElementById('detail-avg-attention').textContent = report.avg_attention_rate;
+            document.getElementById('detail-max-students').textContent = `${report.max_students_count} 人`;
+            document.getElementById('detail-panel').style.display = 'block';
+        }
+
+        // 绘制汇总趋势图
+        function updateSummaryCharts(reports) {
+            // 获取最近 10 场会话，时间由近及远 -> 转换为从远到近便于折线趋势展示
+            const last10 = reports.slice(0, 10).reverse();
+            
+            // 1. 专注度趋势图配置
+            const attentionOption = {
+                backgroundColor: 'transparent',
+                title: { 
+                    text: '📈 近期专注度波动趋势',
+                    left: 'center',
+                    textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
+                },
+                tooltip: { 
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: 'rgba(99, 102, 241, 0.2)',
+                    textStyle: { color: '#1e293b' }
+                },
+                grid: { top: '15%', bottom: '10%', left: '10%', right: '5%' },
+                xAxis: { 
+                    type: 'category', 
+                    data: last10.map(r => r.date.split(' ')[0]),
+                    axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+                    axisLabel: { color: '#64748b' }
+                },
+                yAxis: { 
+                    type: 'value', 
+                    axisLabel: { formatter: '{value}%', color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
+                },
+                series: [{
+                    name: '平均专注度',
+                    data: last10.map(r => parseFloat(r.avg_attention_rate)),
+                    type: 'line',
+                    smooth: true,
+                    color: '#4f46e5',
+                    symbolSize: 8,
+                    lineStyle: { width: 3 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(79, 70, 229, 0.25)' },
+                            { offset: 1, color: 'rgba(79, 70, 229, 0)' }
+                        ])
+                    }
+                }]
+            };
+
+            // 2. 在线人数柱状图配置
+            const studentsOption = {
+                backgroundColor: 'transparent',
+                title: { 
+                    text: '👥 近期场次最高在线人数',
+                    left: 'center',
+                    textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
+                },
+                tooltip: { 
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: 'rgba(16, 185, 129, 0.2)',
+                    textStyle: { color: '#1e293b' }
+                },
+                grid: { top: '15%', bottom: '10%', left: '10%', right: '5%' },
+                xAxis: { 
+                    type: 'category', 
+                    data: last10.map(r => r.session_id),
+                    axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+                    axisLabel: { color: '#64748b' }
+                },
+                yAxis: { 
+                    type: 'value',
+                    axisLabel: { color: '#64748b', formatter: '{value} 人' },
+                    splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
+                },
+                series: [{
+                    name: '最高人数',
+                    data: last10.map(r => r.max_students_count),
+                    type: 'bar',
+                    barWidth: '35%',
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#059669' },
+                            { offset: 1, color: 'rgba(5, 150, 105, 0.1)' }
+                        ]),
+                        borderRadius: [5, 5, 0, 0]
+                    }
+                }]
+            };
+
+            attentionChart.setOption(attentionOption);
+            studentsChart.setOption(studentsOption);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智慧课堂 - 学生专注度检测系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- 装饰背景粒子 -->
+        <div class="bg-decor"></div>
+        <div class="bg-decor-2"></div>
+
+        <header>
+            <div class="user-bar" style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: -15px; font-size: 0.9rem;">
+                <span style="color: var(--text-muted);">👤 登录教师: <strong style="color: var(--text-main);">{{ session['username'] }}</strong></span>
+                <a href="{{ url_for('main.admin') }}" class="admin-link" style="padding: 6px 12px; font-size: 0.85rem;">📊 管理端</a>
+                <a href="{{ url_for('main.logout') }}" style="color: var(--danger); text-decoration: none; font-weight: 500; padding: 6px 12px; background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.12); border-radius: 20px; transition: var(--transition);" onmouseover="this.style.background='var(--danger)'; this.style.color='white'" onmouseout="this.style.background='rgba(220, 38, 38, 0.08)'; this.style.color='var(--danger)'">🚪 退出登录</a>
+            </div>
+            <h1>🏫 智慧课堂专注度管理系统</h1>
+            <p>基于 YOLOv8 的实时教学质量量化分析平台</p>
+        </header>
+
+        <!-- 模式切换导航 -->
+        <div class="mode-switcher">
+            <button class="mode-btn active" id="mode-camera-btn">📹 实时监控课堂</button>
+            <button class="mode-btn" id="mode-upload-btn">🖼️ 离线图片检测</button>
+        </div>
+
+        <!-- 1. 实时相机监控模块 -->
+        <div class="camera-layout" id="camera-section">
+            <!-- 实时画面监控 -->
+            <div class="glass-panel monitor-card">
+                <div class="monitor-container">
+                    <img id="video-stream" src="{{ url_for('main.video_feed') }}" alt="监控画面连接中...">
+                    <div class="monitor-overlay" id="monitor-overlay" style="display: none;">
+                        <div class="ai-active-tag">AI 实时分析中</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制与实时统计面板 -->
+            <div class="camera-analysis glass-panel">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">⚙️ 课堂控制台</h3>
+                
+                <div class="status-indicator" id="class-status-box" style="margin-bottom: 20px;">
+                    <span class="pulse-dot grey" id="status-dot"></span>
+                    <span id="status-text" style="font-weight: 500;">课堂未开始</span>
+                </div>
+                
+                <div class="button-group" style="margin-bottom: 30px; display: flex; gap: 12px;">
+                    <button type="button" class="action-btn start" id="start-class-btn" style="flex: 1; justify-content: center;">
+                        <span class="icon">▶️</span> 开始上课
+                    </button>
+                    <button type="button" class="action-btn end" id="end-class-btn" disabled style="flex: 1; justify-content: center;">
+                        <span class="icon">⏹️</span> 下课统计
+                    </button>
+                </div>
+
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">📊 实时专注度看板</h3>
+                <div class="realtime-stats-grid">
+                    <div class="rt-stat-item">
+                        <span class="rt-label">👥 当前人数</span>
+                        <span class="rt-value" id="stat-total">0</span>
+                    </div>
+                    <div class="rt-stat-item">
+                        <span class="rt-label">🟢 专注人数</span>
+                        <span class="rt-value listening" id="stat-listening">0</span>
+                    </div>
+                    <div class="rt-stat-item">
+                        <span class="rt-label">🔴 分心人数</span>
+                        <span class="rt-value distracted" id="stat-distracted">0</span>
+                    </div>
+                    <div class="rt-stat-item">
+                        <span class="rt-label">📈 实时抬头率</span>
+                        <span class="rt-value attention" id="stat-attention">0.0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 离线图片检测模块 -->
+        <div class="upload-layout" id="upload-section" style="display: none;">
+            <div class="glass-panel upload-card">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <!-- CSRF 防护标签 -->
+                    <input type="hidden" name="csrf_token" id="upload-csrf-token" value="{{ csrf_token() }}">
+                    <div class="drop-zone" id="drop-zone">
+                        <span class="drop-zone-icon">📁</span>
+                        <p class="drop-zone-text">将教室图片拖拽至此，或点击选择文件</p>
+                        <p class="drop-zone-subtext">支持 JPG, PNG 格式图片，大小不超过 10MB</p>
+                        <input type="file" id="file-input" name="file" accept="image/*">
+                    </div>
+                    
+                    <div class="image-preview-container" id="preview-container">
+                        <img id="image-preview" src="" alt="预览图">
+                        <button type="button" class="remove-preview-btn" id="remove-preview-btn">&times;</button>
+                    </div>
+                    
+                    <div class="config-group">
+                        <div class="conf-slider-wrapper">
+                            <div class="conf-label-row">
+                                <span>🎯 YOLO 置信度阈值 (Conf)</span>
+                                <span class="conf-val" id="conf-val">0.30</span>
+                            </div>
+                            <input type="range" id="conf-range" name="conf" min="0.10" max="0.95" step="0.05" value="0.30">
+                        </div>
+                        <button type="submit" class="predict-btn" id="submit-btn" disabled>
+                            <span>🚀</span> 开始分析
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 加载骨架屏 -->
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted);">正在使用 YOLOv8 模型进行深度状态推理，请稍候...</p>
+            </div>
+
+            <!-- 检测结果展示区 -->
+            <div class="results-container" id="results-container">
+                <!-- 统计看板 -->
+                <div class="stats-grid">
+                    <div class="glass-panel stat-card">
+                        <div class="stat-val total" id="res-total">0</div>
+                        <div class="stat-label">👥 教室总人数</div>
+                    </div>
+                    <div class="glass-panel stat-card">
+                        <div class="stat-val listening" id="res-listening">0</div>
+                        <div class="stat-label">🟢 听讲人数</div>
+                    </div>
+                    <div class="glass-panel stat-card">
+                        <div class="stat-val distracted" id="res-distracted">0</div>
+                        <div class="stat-label">🔴 低头/分心人数</div>
+                    </div>
+                    <div class="glass-panel stat-card">
+                        <div class="stat-val rate" id="res-attention-rate">0.0%</div>
+                        <div class="stat-label">📈 平均抬头率</div>
+                    </div>
+                </div>
+
+                <!-- 标注对比视图 -->
+                <div class="glass-panel viewer-card">
+                    <div class="viewer-header">
+                        <span class="viewer-title">🔍 检测结果可视化对比</span>
+                        <div class="viewer-tabs">
+                            <button class="tab-btn active" id="view-result-btn" type="button">🖼️ YOLO 检测标定图</button>
+                            <button class="tab-btn" id="view-origin-btn" type="button">📷 原始图片</button>
+                        </div>
+                    </div>
+                    <div class="images-container">
+                        <div class="image-panel active" id="panel-result">
+                            <img id="result-img" src="" alt="检测结果">
+                        </div>
+                        <div class="image-panel" id="panel-origin">
+                            <img id="origin-img" src="" alt="原始图片">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 详细数据表格 -->
+                <div class="glass-panel table-card">
+                    <h3 class="table-header">📝 教室学生状态诊断明细</h3>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th># 学生序号</th>
+                                    <th>🏷️ 听课分类</th>
+                                    <th>🎯 检测动作</th>
+                                    <th>🔋 置信度 (Conf)</th>
+                                    <th>📐 检测框坐标 (x1, y1, x2, y2)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="diagnostic-tbody">
+                                <!-- 动态安全渲染 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义玻璃态确认模态弹窗 -->
+    <div id="custom-confirm-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <h3 class="modal-title">⚠️ 确认下课</h3>
+            <p class="modal-message">确定要结束当前课程并生成统计报告吗？</p>
+            <div class="modal-btn-group">
+                <button type="button" class="modal-btn cancel" id="modal-cancel-btn">取消</button>
+                <button type="button" class="modal-btn confirm" id="modal-confirm-btn">确定下课</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Tab 切换相关的 DOM 节点
+            const modeCameraBtn = document.getElementById('mode-camera-btn');
+            const modeUploadBtn = document.getElementById('mode-upload-btn');
+            const cameraSection = document.getElementById('camera-section');
+            const uploadSection = document.getElementById('upload-section');
+
+            // 实时监控相关的 DOM 节点
+            const startBtn = document.getElementById('start-class-btn');
+            const endBtn = document.getElementById('end-class-btn');
+            const statusText = document.getElementById('status-text');
+            const statusDot = document.getElementById('status-dot');
+            const monitorOverlay = document.getElementById('monitor-overlay');
+            let statsInterval = null;
+
+            // 离线检测相关的 DOM 节点
+            const uploadForm = document.getElementById('upload-form');
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const previewContainer = document.getElementById('preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const removePreviewBtn = document.getElementById('remove-preview-btn');
+            const confRange = document.getElementById('conf-range');
+            const confVal = document.getElementById('conf-val');
+            const submitBtn = document.getElementById('submit-btn');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const resultsContainer = document.getElementById('results-container');
+
+            // 离线检测结果看板数据节点
+            const resTotal = document.getElementById('res-total');
+            const resListening = document.getElementById('res-listening');
+            const resDistracted = document.getElementById('res-distracted');
+            const resAttentionRate = document.getElementById('res-attention-rate');
+            
+            // 实时监控看板数据节点
+            const statTotal = document.getElementById('stat-total');
+            const statListening = document.getElementById('stat-listening');
+            const statDistracted = document.getElementById('stat-distracted');
+            const statAttention = document.getElementById('stat-attention');
+
+            const viewResultBtn = document.getElementById('view-result-btn');
+            const viewOriginBtn = document.getElementById('view-origin-btn');
+            const panelResult = document.getElementById('panel-result');
+            const panelOrigin = document.getElementById('panel-origin');
+            const resultImg = document.getElementById('result-img');
+            const originImg = document.getElementById('origin-img');
+            const diagnosticTbody = document.getElementById('diagnostic-tbody');
+
+            // ==================== 0. Tab 切换逻辑 ====================
+            modeCameraBtn.addEventListener('click', () => {
+                modeCameraBtn.classList.add('active');
+                modeUploadBtn.classList.remove('active');
+                cameraSection.style.display = 'grid';
+                uploadSection.style.display = 'none';
+            });
+
+            modeUploadBtn.addEventListener('click', () => {
+                modeUploadBtn.classList.add('active');
+                modeCameraBtn.classList.remove('active');
+                uploadSection.style.display = 'block';
+                cameraSection.style.display = 'none';
+            });
+
+            // ==================== 1. 实时课堂监控与轮询 ====================
+            function startPolling() {
+                if (statsInterval) return;
+                // 每 1.5 秒更新一次实时看板数据
+                statsInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch('/latest_stats');
+                        if (response.ok) {
+                            const stats = await response.json();
+                            if (statTotal) statTotal.textContent = stats.total;
+                            if (statListening) statListening.textContent = stats.listening;
+                            if (statDistracted) statDistracted.textContent = stats.distracted;
+                            if (statAttention) statAttention.textContent = stats.attention_rate;
+                        }
+                    } catch (err) {
+                        console.error('Fetch latest stats failed:', err);
+                    }
+                }, 1500);
+            }
+
+            function stopPolling() {
+                if (statsInterval) {
+                    clearInterval(statsInterval);
+                    statsInterval = null;
+                }
+                // 重置指标
+                if (statTotal) statTotal.textContent = '0';
+                if (statListening) statListening.textContent = '0';
+                if (statDistracted) statDistracted.textContent = '0';
+                if (statAttention) statAttention.textContent = '0.0%';
+            }
+
+            // 同步上课状态
+            async function syncStatus() {
+                try {
+                    const response = await fetch('/get_status');
+                    const data = await response.json();
+                    if (data.is_active) {
+                        startBtn.disabled = true;
+                        endBtn.disabled = false;
+                        statusText.textContent = `正在上课 (Session: ${data.session_id})`;
+                        statusDot.className = 'pulse-dot red';
+                        monitorOverlay.style.display = 'block';
+                        startPolling();
+                    } else {
+                        startBtn.disabled = false;
+                        endBtn.disabled = true;
+                        statusText.textContent = '课堂未开始';
+                        statusDot.className = 'pulse-dot grey';
+                        monitorOverlay.style.display = 'none';
+                        stopPolling();
+                    }
+                } catch (err) {
+                    console.error('Sync status failed:', err);
+                }
+            }
+            syncStatus();
+
+            const confirmModal = document.getElementById('custom-confirm-modal');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            const confirmActionBtn = document.getElementById('modal-confirm-btn');
+
+            // 开始上课
+            startBtn.addEventListener('click', async () => {
+                startBtn.disabled = true;
+                try {
+                    const response = await fetch('/start_class', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        startBtn.disabled = true;
+                        endBtn.disabled = false;
+                        statusText.textContent = `正在上课 (Session: ${data.session_id})`;
+                        statusDot.className = 'pulse-dot red';
+                        monitorOverlay.style.display = 'block';
+                        startPolling();
+                    } else {
+                        alert(`上课失败：${data.message || '未知错误'}`);
+                        startBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Start class error:', error);
+                    alert(`启动上课失败：${error.message || '网络连接错误，请检查后端连接。'}`);
+                    startBtn.disabled = false;
+                }
+            });
+
+            // 显示自定义确认弹窗
+            endBtn.addEventListener('click', () => {
+                confirmModal.style.display = 'flex';
+            });
+
+            // 点击取消关闭弹窗
+            cancelBtn.addEventListener('click', () => {
+                confirmModal.style.display = 'none';
+            });
+
+            // 确定下课逻辑
+            confirmActionBtn.addEventListener('click', async () => {
+                confirmModal.style.display = 'none';
+                
+                // 禁用按钮防重复提交
+                endBtn.disabled = true;
+                confirmActionBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/end_class', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        startBtn.disabled = false;
+                        endBtn.disabled = true;
+                        statusText.textContent = '课堂已结束，数据已发送至管理端';
+                        statusDot.className = 'pulse-dot grey';
+                        monitorOverlay.style.display = 'none';
+                        stopPolling();
+
+                        // 弹框通知
+                        alert(`下课成功！\n本节课平均抬头率: ${data.report.avg_attention_rate}\n报告已发送至管理端。`);
+                    } else {
+                        alert(`下课失败：${data.message || '未知错误'}`);
+                        endBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('End class error:', error);
+                    alert(`下课请求失败：${error.message || '网络连接超时或凭证失效，请刷新页面重试。'}`);
+                    endBtn.disabled = false;
+                } finally {
+                    confirmActionBtn.disabled = false;
+                }
+            });
+
+            // ==================== 2. 离线图片检测功能 ====================
+            // 阈值滑块交互
+            confRange.addEventListener('input', (e) => {
+                confVal.textContent = parseFloat(e.target.value).toFixed(2);
+            });
+
+            // 拖拽上传支持
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            ['dragleave', 'dragend'].forEach(type => {
+                dropZone.addEventListener(type, () => {
+                    dropZone.classList.remove('dragover');
+                });
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) {
+                    handleFileSelect(fileInput.files[0]);
+                }
+            });
+
+            function handleFileSelect(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('请选择有效的图片文件！');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    dropZone.style.display = 'none';
+                    previewContainer.style.display = 'block';
+                    submitBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removePreviewBtn.addEventListener('click', () => {
+                fileInput.value = '';
+                imagePreview.src = '';
+                previewContainer.style.display = 'none';
+                dropZone.style.display = 'block';
+                submitBtn.disabled = true;
+                resultsContainer.style.display = 'none';
+            });
+
+            // YOLO检测视图Tab切换
+            viewResultBtn.addEventListener('click', () => {
+                viewResultBtn.classList.add('active');
+                viewOriginBtn.classList.remove('active');
+                panelResult.classList.add('active');
+                panelOrigin.classList.remove('active');
+            });
+
+            viewOriginBtn.addEventListener('click', () => {
+                viewOriginBtn.classList.add('active');
+                viewResultBtn.classList.remove('active');
+                panelOrigin.classList.add('active');
+                panelResult.classList.remove('active');
+            });
+
+            // 表单提交异步检测
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!fileInput.files.length) return;
+
+                // 显示 loading，隐藏旧结果
+                loadingOverlay.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                submitBtn.disabled = true;
+
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('conf', confRange.value);
+                formData.append('csrf_token', document.getElementById('upload-csrf-token').value);
+
+                try {
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // 1. 渲染总体统计指标
+                        resTotal.textContent = data.total;
+                        resListening.textContent = data.listening;
+                        resDistracted.textContent = data.distracted;
+                        resAttentionRate.textContent = data.attention_rate;
+
+                        // 2. 更新对比图片地址
+                        resultImg.src = data.result_image_url;
+                        originImg.src = data.uploaded_image_url;
+
+                        // 3. 动态渲染明细表格 (严格遵照 vanilla DOM API 安全渲染规范，替换 innerHTML)
+                        diagnosticTbody.replaceChildren(); // 清空原有内容
+
+                        data.students.forEach(student => {
+                            const tr = document.createElement('tr');
+
+                            // # ID 列
+                            const tdId = document.createElement('td');
+                            tdId.textContent = student.id;
+                            tr.appendChild(tdId);
+
+                            // 状态标签列 (胶囊)
+                            const tdStatus = document.createElement('td');
+                            const badgeSpan = document.createElement('span');
+                            badgeSpan.className = student.status === 'Listening' ? 'badge badge-listening' : 'badge badge-distracted';
+                            badgeSpan.textContent = student.status_cn;
+                            tdStatus.appendChild(badgeSpan);
+                            tr.appendChild(tdStatus);
+
+                            // YOLO 动作列
+                            const tdAction = document.createElement('td');
+                            tdAction.textContent = student.label_cn;
+                            tr.appendChild(tdAction);
+
+                            // 置信度列
+                            const tdConf = document.createElement('td');
+                            tdConf.textContent = student.confidence;
+                            tr.appendChild(tdConf);
+
+                            // 坐标坐标框列
+                            const tdCoords = document.createElement('td');
+                            tdCoords.textContent = `[${student.bbox.join(', ')}]`;
+                            tr.appendChild(tdCoords);
+
+                            diagnosticTbody.appendChild(tr);
+                        });
+
+                        // 切换对比页签为检测图
+                        viewResultBtn.click();
+
+                        // 显示结果
+                        resultsContainer.style.display = 'block';
+                    } else {
+                        alert(`分析失败: ${data.error}`);
+                    }
+                } catch (err) {
+                    console.error('Prediction request failed:', err);
+                    alert('网络连接错误，无法完成 YOLO 推理。');
+                } finally {
+                    loadingOverlay.style.display = 'none';
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
