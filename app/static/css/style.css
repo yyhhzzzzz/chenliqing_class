@@ -425,8 +425,131 @@ header p {
 /* 监控面板 */
 .monitor-card {
     max-width: 900px;
-    margin: 0 auto;
+    margin: 0 auto 30px;
     padding: 15px;
+}
+
+/* 实时统计数据卡片 */
+.stats-card {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.stats-card h3 {
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+/* 管理端实时统计卡片 */
+.live-stats-card {
+    margin-bottom: 30px;
+}
+
+.live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.live-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.live-status {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+.live-status.online {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
+.live-status.offline {
+    background: rgba(156, 163, 175, 0.1);
+    color: var(--text-muted);
+}
+
+/* 实时统计网格 */
+.realtime-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.rt-stat-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 20px;
+    border-radius: 14px;
+    text-align: center;
+    border: 1px solid var(--panel-border);
+    transition: var(--transition);
+}
+
+.rt-stat-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+}
+
+.rt-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 400;
+}
+
+.rt-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    display: block;
+}
+
+.rt-value.listening {
+    color: var(--success);
+}
+
+.rt-value.distracted {
+    color: var(--danger);
+}
+
+.rt-value.attention {
+    color: var(--primary);
+}
+
+/* 会话信息 */
+.session-info {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.session-info #session-id {
+    color: var(--primary);
+    font-weight: 600;
+    font-family: monospace;
+}
+
+.session-info .duration {
+    margin-left: auto;
+    color: var(--success);
+    font-family: monospace;
+    font-weight: 600;
 }
 
 .monitor-container {
