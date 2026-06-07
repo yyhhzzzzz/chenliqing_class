@@ -44,9 +44,25 @@
             <div class="camera-analysis glass-panel">
                 <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">⚙️ 课堂控制台</h3>
                 
-                <div class="status-indicator" id="class-status-box" style="margin-bottom: 20px;">
+                <div class="status-indicator" id="class-status-box" style="margin-bottom: 15px;">
                     <span class="pulse-dot grey" id="status-dot"></span>
                     <span id="status-text" style="font-weight: 500;">课堂未开始</span>
+                </div>
+
+                <!-- 新增：教务选择下拉框 -->
+                <div class="selection-group" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="class-select" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">🏫 选择授课班级</label>
+                        <select id="class-select" style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                            <option value="">正在加载班级...</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="course-select" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">📚 选择授课学科</label>
+                        <select id="course-select" style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                            <option value="">正在加载学科...</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="button-group" style="margin-bottom: 30px; display: flex; gap: 12px;">
@@ -210,6 +226,8 @@
             const statusText = document.getElementById('status-text');
             const statusDot = document.getElementById('status-dot');
             const monitorOverlay = document.getElementById('monitor-overlay');
+            const classSelect = document.getElementById('class-select');
+            const courseSelect = document.getElementById('course-select');
             let statsInterval = null;
 
             // 离线检测相关的 DOM 节点
@@ -292,6 +310,48 @@
                 if (statAttention) statAttention.textContent = '0.0%';
             }
 
+            // 加载班级与学科的选项 (使用 textContent 进行安全的 DOM 渲染)
+            async function loadSelections() {
+                try {
+                    const resClasses = await fetch('/api/classes');
+                    const classes = await resClasses.json();
+                    
+                    classSelect.replaceChildren();
+                    const defaultClassOpt = document.createElement('option');
+                    defaultClassOpt.value = '';
+                    defaultClassOpt.textContent = '请选择班级...';
+                    classSelect.appendChild(defaultClassOpt);
+                    
+                    classes.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = c.name;
+                        classSelect.appendChild(opt);
+                    });
+
+                    const resCourses = await fetch('/api/courses');
+                    const courses = await resCourses.json();
+                    
+                    courseSelect.replaceChildren();
+                    const defaultCourseOpt = document.createElement('option');
+                    defaultCourseOpt.value = '';
+                    defaultCourseOpt.textContent = '请选择学科...';
+                    courseSelect.appendChild(defaultCourseOpt);
+                    
+                    courses.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = c.name;
+                        courseSelect.appendChild(opt);
+                    });
+                } catch (err) {
+                    console.error('加载教务配置选项失败:', err);
+                }
+            }
+            
+            // 立即加载下拉选项
+            loadSelections();
+
             // 同步上课状态
             async function syncStatus() {
                 try {
@@ -303,6 +363,13 @@
                         statusText.textContent = `正在上课 (Session: ${data.session_id})`;
                         statusDot.className = 'pulse-dot red';
                         monitorOverlay.style.display = 'block';
+                        
+                        // 锁定并选中当前的班级/学科
+                        classSelect.disabled = true;
+                        courseSelect.disabled = true;
+                        if (data.class_id) classSelect.value = data.class_id;
+                        if (data.course_id) courseSelect.value = data.course_id;
+                        
                         startPolling();
                     } else {
                         startBtn.disabled = false;
@@ -310,6 +377,11 @@
                         statusText.textContent = '课堂未开始';
                         statusDot.className = 'pulse-dot grey';
                         monitorOverlay.style.display = 'none';
+                        
+                        // 释放选择框
+                        classSelect.disabled = false;
+                        courseSelect.disabled = false;
+                        
                         stopPolling();
                     }
                 } catch (err) {
@@ -324,17 +396,31 @@
 
             // 开始上课
             startBtn.addEventListener('click', async () => {
+                const classId = classSelect.value;
+                const courseId = courseSelect.value;
+                
+                if (!classId || !courseId) {
+                    alert('请先选择班级和学科！');
+                    return;
+                }
+                
                 startBtn.disabled = true;
+                classSelect.disabled = true;
+                courseSelect.disabled = true;
+                
                 try {
                     const response = await fetch('/start_class', {
                         method: 'POST',
                         headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
                             'X-CSRF-Token': '{{ csrf_token() }}'
-                        }
+                        },
+                        body: `class_id=${encodeURIComponent(classId)}&course_id=${encodeURIComponent(courseId)}`
                     });
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        const errData = await response.json();
+                        throw new Error(errData.message || `HTTP error! status: ${response.status}`);
                     }
 
                     const data = await response.json();
@@ -349,11 +435,15 @@
                     } else {
                         alert(`上课失败：${data.message || '未知错误'}`);
                         startBtn.disabled = false;
+                        classSelect.disabled = false;
+                        courseSelect.disabled = false;
                     }
                 } catch (error) {
                     console.error('Start class error:', error);
                     alert(`启动上课失败：${error.message || '网络连接错误，请检查后端连接。'}`);
                     startBtn.disabled = false;
+                    classSelect.disabled = false;
+                    courseSelect.disabled = false;
                 }
             });
 
