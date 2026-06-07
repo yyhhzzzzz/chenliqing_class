@@ -1146,6 +1146,7 @@ tr:hover td {
     font-size: 0.9rem;
 }
 
+
 .session-info #session-id {
     color: var(--primary);
     font-weight: 600;
