@@ -5,8 +5,8 @@ import time
 from datetime import datetime
 from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, url_for, Response, redirect, session, current_app
-from app.models import db, User
-from werkzeug.security import generate_password_hash, check_password_hash
+from app.models import db, User, StudentClass, Course, Student, Session, TimelineRecord
+from werkzeug.security import check_password_hash
 from app.camera import class_state, latest_camera_stats, generate_frames
 
 main_bp = Blueprint('main', __name__)
@@ -67,7 +67,9 @@ def get_status():
     return jsonify({
         "is_active": class_state['is_active'],
         "session_id": class_state['session_id'],
-        "start_time": class_state['start_time']
+        "start_time": class_state['start_time'],
+        "class_id": class_state.get('class_id'),
+        "course_id": class_state.get('course_id')
     })
 
 @main_bp.route('/admin')
@@ -76,41 +78,125 @@ def admin():
     """管理端页面"""
     return render_template('admin.html')
 
+@main_bp.route('/api/classes')
+@login_required
+def get_classes():
+    """获取所有班级列表"""
+    classes = StudentClass.query.all()
+    return jsonify([{"id": c.id, "name": c.name} for c in classes])
+
+@main_bp.route('/api/courses')
+@login_required
+def get_courses():
+    """获取所有学科列表"""
+    courses = Course.query.all()
+    return jsonify([{"id": c.id, "name": c.name} for c in courses])
+
 @main_bp.route('/api/reports')
 @login_required
 def get_reports():
-    """获取所有历史报告列表"""
-    report_dir = os.path.join(os.getcwd(), "reports")
-    if not os.path.exists(report_dir):
-        return jsonify([])
+    """获取所有历史报告列表，支持按班级和学科过滤"""
+    class_id = request.args.get('class_id', type=int)
+    course_id = request.args.get('course_id', type=int)
+    
+    query = Session.query
+    if class_id:
+        query = query.filter_by(class_id=class_id)
+    if course_id:
+        query = query.filter_by(course_id=course_id)
+        
+    sessions = query.order_by(Session.start_time.desc()).all()
     
     reports = []
-    for filename in os.listdir(report_dir):
-        if filename.endswith('.json'):
-            path = os.path.join(report_dir, filename)
-            with open(path, 'r', encoding='utf-8') as f:
-                reports.append(json.load(f))
-    
-    # 按日期降序排列
-    reports.sort(key=lambda x: x.get('date', ''), reverse=True)
+    for s in sessions:
+        reports.append({
+            "session_id": s.id,
+            "class_id": s.class_id,
+            "class_name": s.student_class.name if s.student_class else "未知班级",
+            "course_id": s.course_id,
+            "course_name": s.course.name if s.course else "未知学科",
+            "date": s.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "duration_seconds": s.duration_seconds,
+            "avg_attention_rate": f"{s.avg_attention_rate:.1f}%",
+            "max_students_count": s.max_students_count,
+            "data_points": len(s.timeline_records)
+        })
     return jsonify(reports)
+
+@main_bp.route('/api/reports/<session_id>/timeline')
+@login_required
+def get_report_timeline(session_id):
+    """获取某场课堂的详细时序数据"""
+    records = TimelineRecord.query.filter_by(session_id=session_id).order_by(TimelineRecord.timestamp).all()
+    return jsonify([{
+        "timestamp": r.timestamp,
+        "total": r.total,
+        "listening": r.listening,
+        "distracted": r.distracted,
+        "attention_rate": r.attention_rate
+    } for r in records])
+
+@main_bp.route('/api/analytics/class_compare')
+@login_required
+def get_class_compare():
+    """统计各班级的平均抬头率与出勤人数"""
+    results = db.session.query(
+        StudentClass.name,
+        db.func.avg(Session.avg_attention_rate),
+        db.func.avg(Session.max_students_count)
+    ).join(Session, Session.class_id == StudentClass.id).group_by(StudentClass.id).all()
+    
+    return jsonify([{
+        "class_name": r[0],
+        "avg_attention_rate": round(r[1], 1) if r[1] is not None else 0.0,
+        "avg_max_students": round(r[2], 1) if r[2] is not None else 0.0
+    } for r in results])
+
+@main_bp.route('/api/analytics/course_compare')
+@login_required
+def get_course_compare():
+    """统计各学科的平均抬头率"""
+    results = db.session.query(
+        Course.name,
+        db.func.avg(Session.avg_attention_rate)
+    ).join(Session, Session.course_id == Course.id).group_by(Course.id).all()
+    
+    return jsonify([{
+        "course_name": r[0],
+        "avg_attention_rate": round(r[1], 1) if r[1] is not None else 0.0
+    } for r in results])
 
 @main_bp.route('/start_class', methods=['POST'])
 @login_required
 def start_class():
-    """开始上课逻辑"""
+    """开始上课逻辑 (保存班级与学科信息)"""
     if not class_state['is_active']:
+        class_id = request.form.get('class_id', type=int)
+        course_id = request.form.get('course_id', type=int)
+        
+        if not class_id or not course_id:
+            return jsonify({"status": "error", "message": "请选择授课班级和学科！"}), 400
+            
+        # 验证班级与学科是否存在
+        school_class = StudentClass.query.get(class_id)
+        course = Course.query.get(course_id)
+        if not school_class or not course:
+            return jsonify({"status": "error", "message": "班级或学科数据不存在！"}), 400
+            
         class_state['is_active'] = True
         class_state['start_time'] = time.time()
         class_state['session_id'] = str(uuid.uuid4())[:8]
+        class_state['class_id'] = class_id
+        class_state['course_id'] = course_id
         class_state['history_stats'] = []
-        print(f"[{datetime.now()}] 🔔 课堂开始！Session ID: {class_state['session_id']}")
+        print(f"[{datetime.now()}] 🔔 课堂开始！Session ID: {class_state['session_id']}, 班级: {school_class.name}, 学科: {course.name}")
+        
     return jsonify({"status": "success", "session_id": class_state['session_id']})
 
 @main_bp.route('/end_class', methods=['POST'])
 @login_required
 def end_class():
-    """下课逻辑：统计数据并“发送”到管理端"""
+    """下课逻辑：保存汇总指标至 Session 表，并批量导入时序 TimelineRecord"""
     if class_state['is_active']:
         class_state['is_active'] = False
         end_time = time.time()
@@ -122,36 +208,68 @@ def end_class():
             avg_attention = sum([float(s['attention_rate'].replace('%','')) for s in history]) / len(history)
             max_students = max([s['total'] for s in history])
         else:
-            avg_attention = 0
+            avg_attention = 0.0
             max_students = 0
 
-        # 生成报告
-        report = {
-            "session_id": class_state['session_id'],
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "duration_seconds": round(duration, 2),
-            "avg_attention_rate": f"{avg_attention:.1f}%",
-            "max_students_count": max_students,
-            "data_points": len(history)
-        }
-
-        # 模拟“发送到管理端”：保存到本地文件并打印日志
-        report_dir = os.path.join(os.getcwd(), "reports")
-        os.makedirs(report_dir, exist_ok=True)
-        report_path = os.path.join(report_dir, f"report_{class_state['session_id']}.json")
-        
         try:
+            # 1. 存储 Session 汇总记录
+            new_session = Session(
+                id=class_state['session_id'],
+                class_id=class_state['class_id'],
+                course_id=class_state['course_id'],
+                teacher_id=session['user_id'],
+                start_time=datetime.fromtimestamp(class_state['start_time']),
+                end_time=datetime.fromtimestamp(end_time),
+                duration_seconds=round(duration, 2),
+                avg_attention_rate=round(avg_attention, 1),
+                max_students_count=max_students
+            )
+            db.session.add(new_session)
+            
+            # 2. 存储 Timeline 详细时序记录
+            start_t = class_state['start_time']
+            for i, pt in enumerate(history):
+                rate = float(pt['attention_rate'].replace('%', ''))
+                # 记录相对上课时间的秒数偏移
+                time_offset = round(i + 1.0, 1)
+                record = TimelineRecord(
+                    session_id=class_state['session_id'],
+                    timestamp=time_offset,
+                    total=pt['total'],
+                    listening=pt['listening'],
+                    distracted=pt['distracted'],
+                    attention_rate=rate
+                )
+                db.session.add(record)
+                
+            db.session.commit()
+            
+            # 同时保留一份 JSON 备份以确保向后兼容 (安全地保存到 reports/ 目录下)
+            report = {
+                "session_id": class_state['session_id'],
+                "class_name": new_session.student_class.name,
+                "course_name": new_session.course.name,
+                "date": new_session.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "duration_seconds": new_session.duration_seconds,
+                "avg_attention_rate": f"{new_session.avg_attention_rate:.1f}%",
+                "max_students_count": new_session.max_students_count,
+                "data_points": len(history)
+            }
+            report_dir = os.path.join(os.getcwd(), "reports")
+            os.makedirs(report_dir, exist_ok=True)
+            report_path = os.path.join(report_dir, f"report_{class_state['session_id']}.json")
             with open(report_path, 'w', encoding='utf-8') as f:
                 json.dump(report, f, indent=4, ensure_ascii=False)
+                
         except Exception as e:
-            print(f"[错误] 无法保存课堂报告: {e}")
+            db.session.rollback()
+            print(f"[错误] 无法保存课堂报告到数据库: {e}")
             return jsonify({"status": "error", "message": f"无法保存报告: {e}"}), 500
 
         print(f"\n{'='*40}")
-        print(f"📊 课堂报告已生成并发送至管理端！")
+        print(f"📊 课堂报告已成功同步到 SQLite 数据库！")
         print(f"平均抬头率: {report['avg_attention_rate']}")
         print(f"上课时长: {report['duration_seconds']} 秒")
-        print(f"报告路径: {report_path}")
         print(f"{'='*40}\n")
 
         return jsonify({"status": "success", "report": report})
@@ -214,3 +332,68 @@ def predict():
         'result_image_url': url_for('static', filename=f'outputs/{result_data["output_filename"]}'),
         'students': result_data['students']
     })
+
+@main_bp.route('/api/classes', methods=['POST'])
+@login_required
+def create_class():
+    """新增班级 API"""
+    name = request.form.get('name')
+    if not name or not name.strip():
+        return jsonify({"status": "error", "message": "班级名称不能为空"}), 400
+        
+    name = name.strip()
+    # 检查是否重复
+    existing = StudentClass.query.filter_by(name=name).first()
+    if existing:
+        return jsonify({"status": "error", "message": "该班级已存在"}), 400
+        
+    try:
+        new_class = StudentClass(name=name)
+        db.session.add(new_class)
+        db.session.commit()
+        return jsonify({
+            "status": "success", 
+            "message": "班级添加成功", 
+            "class": {"id": new_class.id, "name": new_class.name}
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"保存班级失败: {e}"}), 500
+
+@main_bp.route('/api/students', methods=['POST'])
+@login_required
+def create_student():
+    """新增学生 API"""
+    name = request.form.get('name')
+    class_id = request.form.get('class_id', type=int)
+    student_number = request.form.get('student_number')
+    
+    if not name or not name.strip() or not class_id:
+        return jsonify({"status": "error", "message": "学生姓名和所属班级不能为空"}), 400
+        
+    name = name.strip()
+    student_number = student_number.strip() if student_number else None
+    
+    # 验证班级是否存在
+    school_class = StudentClass.query.get(class_id)
+    if not school_class:
+        return jsonify({"status": "error", "message": "所选班级不存在"}), 400
+        
+    if student_number:
+        # 验证学号是否重复
+        existing = Student.query.filter_by(student_number=student_number).first()
+        if existing:
+            return jsonify({"status": "error", "message": "学号已被其他学生占用"}), 400
+            
+    try:
+        new_student = Student(name=name, class_id=class_id, student_number=student_number)
+        db.session.add(new_student)
+        db.session.commit()
+        return jsonify({
+            "status": "success", 
+            "message": "学生添加成功", 
+            "student": {"id": new_student.id, "name": new_student.name}
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"保存学生失败: {e}"}), 500

@@ -149,7 +149,17 @@
 
         <!-- 历史会话列表 -->
         <div class="glass-panel report-list">
-            <h3 style="margin-bottom: 15px; font-weight: 600;">📋 历史课堂报告列表</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+                <h3 style="font-weight: 600; margin: 0;">📋 历史课堂报告列表</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <select id="filter-class" style="padding: 8px 12px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                        <option value="">全部班级</option>
+                    </select>
+                    <select id="filter-course" style="padding: 8px 12px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                        <option value="">全部学科</option>
+                    </select>
+                </div>
+            </div>
             <div class="reports-wrapper" id="reports-container">
                 <p style="color: var(--text-muted);">正在加载历史数据...</p>
             </div>
@@ -158,10 +168,14 @@
         <!-- 选中课堂详情面板 -->
         <div class="glass-panel report-detail-card" id="detail-panel" style="margin-bottom: 30px; display: none;">
             <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">📌 选中会话详情分析</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
                 <div class="rt-stat-item">
-                    <span class="rt-label">🔑 课堂会话 ID</span>
-                    <span class="rt-value" id="detail-session-id" style="font-size: 1.25rem;">-</span>
+                    <span class="rt-label">🏫 授课班级</span>
+                    <span class="rt-value" id="detail-class-name" style="font-size: 1.25rem; color: var(--text-main);">-</span>
+                </div>
+                <div class="rt-stat-item">
+                    <span class="rt-label">📚 授课学科</span>
+                    <span class="rt-value" id="detail-course-name" style="font-size: 1.25rem; color: var(--text-main);">-</span>
                 </div>
                 <div class="rt-stat-item">
                     <span class="rt-label">📅 课堂日期</span>
@@ -180,33 +194,165 @@
                     <span class="rt-value" id="detail-max-students" style="font-size: 1.25rem; color: var(--text-main);">-</span>
                 </div>
             </div>
+            <!-- 新增：单课专注度时序波动图 -->
+            <div id="session-timeline-chart" style="height: 300px; width: 100%; margin-top: 20px;"></div>
         </div>
 
-        <!-- 趋势图网格 -->
-        <div class="charts-grid">
+        <!-- 教务数据管理面板 -->
+        <div class="glass-panel admin-management-card" style="margin-bottom: 30px;">
+            <h3 style="margin-bottom: 20px; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; font-weight: 600;">🏫 教务基础数据维护</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; flex-wrap: wrap;">
+                <!-- 添加班级表单 -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <h4 style="font-weight: 500; color: var(--text-main);">➕ 新增班级</h4>
+                    <form id="add-class-form" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label for="new-class-name" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">班级名称</label>
+                            <input type="text" id="new-class-name" placeholder="例如：高一3班" required style="padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                        </div>
+                        <button type="submit" class="action-btn start" style="align-self: flex-start; padding: 10px 20px; font-size: 0.9rem; justify-content: center; height: auto;">保存班级</button>
+                    </form>
+                </div>
+
+                <!-- 添加学生表单 -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <h4 style="font-weight: 500; color: var(--text-main);">➕ 新增学生</h4>
+                    <form id="add-student-form" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label for="student-class-select" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">所属班级</label>
+                            <select id="student-class-select" required style="padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                                <option value="">选择班级...</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label for="new-student-name" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">学生姓名</label>
+                            <input type="text" id="new-student-name" placeholder="请输入学生姓名" required style="padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label for="new-student-number" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">学号 (可选)</label>
+                            <input type="text" id="new-student-number" placeholder="请输入学号" style="padding: 10px 14px; border-radius: 12px; border: 1px solid var(--panel-border); background: rgba(255, 255, 255, 0.4); font-family: var(--font-sans); color: var(--text-main); outline: none; transition: var(--transition);" onmouseover="this.style.background='rgba(255, 255, 255, 0.6)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.4)'">
+                        </div>
+                        <button type="submit" class="action-btn start" style="align-self: flex-start; padding: 10px 20px; font-size: 0.9rem; justify-content: center; height: auto;">保存学生</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 趋势图网格 (扩展为2x2共4张图表) -->
+        <div class="charts-grid" style="margin-bottom: 30px;">
             <div class="chart-panel" id="attention-chart"></div>
             <div class="chart-panel" id="students-chart"></div>
+            <div class="chart-panel" id="class-compare-chart"></div>
+            <div class="chart-panel" id="course-compare-chart"></div>
         </div>
     </div>
 
     <script>
-        let attentionChart, studentsChart;
+        let attentionChart, studentsChart, sessionTimelineChart, classCompareChart, courseCompareChart;
         let statsInterval = null;
         let classStartTime = null;
         let durationInterval = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 初始化 ECharts，配置为默认明亮主题
+            // 初始化 ECharts，配置为默认主题
             attentionChart = echarts.init(document.getElementById('attention-chart'));
             studentsChart = echarts.init(document.getElementById('students-chart'));
+            sessionTimelineChart = echarts.init(document.getElementById('session-timeline-chart'));
+            classCompareChart = echarts.init(document.getElementById('class-compare-chart'));
+            courseCompareChart = echarts.init(document.getElementById('course-compare-chart'));
             
             // 响应窗口伸缩
             window.addEventListener('resize', () => {
                 attentionChart.resize();
                 studentsChart.resize();
+                if (sessionTimelineChart) sessionTimelineChart.resize();
+                if (classCompareChart) classCompareChart.resize();
+                if (courseCompareChart) courseCompareChart.resize();
             });
 
+            // 绑定筛选更新事件
+            document.getElementById('filter-class').addEventListener('change', () => {
+                loadReports();
+            });
+            document.getElementById('filter-course').addEventListener('change', () => {
+                loadReports();
+            });
+
+            // 绑定：添加班级表单提交监听
+            document.getElementById('add-class-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const classNameInput = document.getElementById('new-class-name');
+                const name = classNameInput.value.trim();
+                if (!name) return;
+
+                try {
+                    const response = await fetch('/api/classes', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        },
+                        body: `name=${encodeURIComponent(name)}`
+                    });
+
+                    const data = await response.json();
+                    if (response.ok && data.status === 'success') {
+                        alert('班级添加成功！');
+                        classNameInput.value = '';
+                        // 重新加载筛选和班级下拉列表
+                        await loadFilters();
+                    } else {
+                        alert(`添加失败：${data.message || '未知错误'}`);
+                    }
+                } catch (err) {
+                    console.error('Add class error:', err);
+                    alert('添加班级请求失败，请检查网络连接。');
+                }
+            });
+
+            // 绑定：添加学生表单提交监听
+            document.getElementById('add-student-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const classSelect = document.getElementById('student-class-select');
+                const studentNameInput = document.getElementById('new-student-name');
+                const studentNumberInput = document.getElementById('new-student-number');
+
+                const classId = classSelect.value;
+                const name = studentNameInput.value.trim();
+                const studentNumber = studentNumberInput.value.trim();
+
+                if (!classId || !name) return;
+
+                try {
+                    const response = await fetch('/api/students', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        },
+                        body: `name=${encodeURIComponent(name)}&class_id=${encodeURIComponent(classId)}&student_number=${encodeURIComponent(studentNumber)}`
+                    });
+
+                    const data = await response.json();
+                    if (response.ok && data.status === 'success') {
+                        alert('学生添加成功！');
+                        studentNameInput.value = '';
+                        studentNumberInput.value = '';
+                        classSelect.value = '';
+                        // 重新拉取对比大屏数据以更新学生人数对比
+                        await loadComparisonAnalytics();
+                    } else {
+                        alert(`添加失败：${data.message || '未知错误'}`);
+                    }
+                } catch (err) {
+                    console.error('Add student error:', err);
+                    alert('添加学生请求失败，请检查网络连接。');
+                }
+            });
+
+            loadFilters();
             loadReports();
+            loadComparisonAnalytics();
             startLiveStatsUpdate();
         });
 
@@ -219,6 +365,61 @@
         const sessionInfo = document.getElementById('session-info');
         const sessionId = document.getElementById('session-id');
         const classDuration = document.getElementById('class-duration');
+
+        // 加载筛选和数据表单中的下拉选项 (安全的 DOM 操作)
+        async function loadFilters() {
+            try {
+                const resClasses = await fetch('/api/classes');
+                const classes = await resClasses.json();
+                
+                // 1. 清空并填充班级筛选下拉框
+                const filterClass = document.getElementById('filter-class');
+                filterClass.replaceChildren();
+                const defaultClassFilter = document.createElement('option');
+                defaultClassFilter.value = '';
+                defaultClassFilter.textContent = '全部班级';
+                filterClass.appendChild(defaultClassFilter);
+                
+                // 2. 清空并填充新增学生表单中所属班级下拉框
+                const studentClassSelect = document.getElementById('student-class-select');
+                studentClassSelect.replaceChildren();
+                const defaultStudentClass = document.createElement('option');
+                defaultStudentClass.value = '';
+                defaultStudentClass.textContent = '选择班级...';
+                studentClassSelect.appendChild(defaultStudentClass);
+
+                classes.forEach(c => {
+                    const opt1 = document.createElement('option');
+                    opt1.value = c.id;
+                    opt1.textContent = c.name;
+                    filterClass.appendChild(opt1);
+
+                    const opt2 = document.createElement('option');
+                    opt2.value = c.id;
+                    opt2.textContent = c.name;
+                    studentClassSelect.appendChild(opt2);
+                });
+
+                const resCourses = await fetch('/api/courses');
+                const courses = await resCourses.json();
+                const filterCourse = document.getElementById('filter-course');
+                
+                filterCourse.replaceChildren();
+                const defaultCourseFilter = document.createElement('option');
+                defaultCourseFilter.value = '';
+                defaultCourseFilter.textContent = '全部学科';
+                filterCourse.appendChild(defaultCourseFilter);
+
+                courses.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    filterCourse.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('加载筛选及表单下拉选项失败:', err);
+            }
+        }
 
         // 获取实时课堂状态
         async function fetchClassStatus() {
@@ -297,10 +498,21 @@
             }, 3000);
         }
 
-        // 加载历史会话报告
+        // 加载历史会话报告 (支持后端条件筛选)
         async function loadReports() {
+            const classId = document.getElementById('filter-class').value;
+            const courseId = document.getElementById('filter-course').value;
+            
+            let url = '/api/reports';
+            const params = [];
+            if (classId) params.push(`class_id=${classId}`);
+            if (courseId) params.push(`course_id=${courseId}`);
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
             try {
-                const response = await fetch('/api/reports');
+                const response = await fetch(url);
                 const reports = await response.json();
                 
                 const container = document.getElementById('reports-container');
@@ -308,21 +520,22 @@
                     container.replaceChildren();
                     const p = document.createElement('p');
                     p.style.color = 'var(--text-muted)';
-                    p.textContent = '暂无历史报告';
+                    p.textContent = '暂无符合筛选条件的课堂报告';
                     container.appendChild(p);
+                    document.getElementById('detail-panel').style.display = 'none';
                     return;
                 }
 
-                container.replaceChildren(); // 清空容器 (XSS-free)
+                container.replaceChildren(); // 清空容器 (XSS-safe)
 
                 reports.forEach((report, index) => {
                     const div = document.createElement('div');
                     div.className = `report-item ${index === 0 ? 'active' : ''}`;
                     
-                    // 构建左半部 Session title
+                    // 构建左半部
                     const sessionSpan = document.createElement('span');
                     const strong = document.createElement('strong');
-                    strong.textContent = `Session: ${report.session_id}`;
+                    strong.textContent = `${report.class_name} - ${report.course_name} (${report.session_id})`;
                     sessionSpan.appendChild(strong);
                     div.appendChild(sessionSpan);
 
@@ -349,7 +562,7 @@
 
                     div.appendChild(metaDiv);
 
-                    // 绑定选择联动逻辑
+                    // 绑定选择联动
                     div.addEventListener('click', () => {
                         document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
                         div.classList.add('active');
@@ -363,7 +576,7 @@
                 showReportDetail(reports[0]);
                 updateSummaryCharts(reports);
             } catch (err) {
-                console.error('Load reports failed:', err);
+                console.error('加载历史报告列表失败:', err);
                 const container = document.getElementById('reports-container');
                 container.replaceChildren();
                 const p = document.createElement('p');
@@ -373,27 +586,101 @@
             }
         }
 
-        // 显示选中报告的详细数据
+        // 显示选中报告的详细数据并加载时序图
         function showReportDetail(report) {
             if (!report) return;
-            document.getElementById('detail-session-id').textContent = report.session_id;
+            document.getElementById('detail-class-name').textContent = report.class_name;
+            document.getElementById('detail-course-name').textContent = report.course_name;
             document.getElementById('detail-date').textContent = report.date;
             document.getElementById('detail-duration').textContent = `${report.duration_seconds} 秒`;
             document.getElementById('detail-avg-attention').textContent = report.avg_attention_rate;
             document.getElementById('detail-max-students').textContent = `${report.max_students_count} 人`;
             document.getElementById('detail-panel').style.display = 'block';
+            
+            // 解决 display: none 导致 ECharts 初始化宽度为 0 的问题
+            if (sessionTimelineChart) {
+                sessionTimelineChart.resize();
+            }
+            
+            // 异步获取并绘制本堂课的秒级时序波动折线图
+            loadSessionTimeline(report.session_id);
         }
 
-        // 绘制汇总趋势图
+        // 加载选中会话的细粒度时序并渲染
+        async function loadSessionTimeline(sessionId) {
+            try {
+                const response = await fetch(`/api/reports/${sessionId}/timeline`);
+                const data = await response.json();
+                
+                const xData = data.map(r => `${r.timestamp}s`);
+                const yData = data.map(r => r.attention_rate);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    title: { 
+                        text: '⏱️ 本节课专注度实时波动曲线',
+                        left: 'center',
+                        textStyle: { fontSize: 15, fontWeight: '600', color: '#1e293b' }
+                    },
+                    tooltip: { 
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        borderColor: 'rgba(99, 102, 241, 0.2)',
+                        textStyle: { color: '#1e293b' },
+                        formatter: function (params) {
+                            const p = params[0];
+                            const pt = data[p.dataIndex];
+                            return `<b>课堂进度:</b> ${pt.timestamp} 秒<br/>` +
+                                   `<b>实时抬头率:</b> <span style="color:#4f46e5;font-weight:bold">${pt.attention_rate}%</span><br/>` +
+                                   `<b>教室内人数:</b> ${pt.total} 人 (专注 ${pt.listening} | 分心 ${pt.distracted})`;
+                        }
+                    },
+                    grid: { top: '15%', bottom: '15%', left: '8%', right: '5%' },
+                    xAxis: { 
+                        type: 'category', 
+                        data: xData,
+                        axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+                        axisLabel: { color: '#64748b' }
+                    },
+                    yAxis: { 
+                        type: 'value', 
+                        min: 0,
+                        max: 100,
+                        axisLabel: { formatter: '{value}%', color: '#64748b' },
+                        splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
+                    },
+                    series: [{
+                        name: '实时专注度',
+                        data: yData,
+                        type: 'line',
+                        smooth: true,
+                        color: '#4f46e5',
+                        symbolSize: 6,
+                        lineStyle: { width: 2.5 },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(79, 70, 229, 0.18)' },
+                                { offset: 1, color: 'rgba(79, 70, 229, 0)' }
+                            ])
+                        }
+                    }]
+                };
+                sessionTimelineChart.setOption(option);
+            } catch (err) {
+                console.error('加载单课时序图失败:', err);
+            }
+        }
+
+        // 绘制趋势图
         function updateSummaryCharts(reports) {
-            // 获取最近 10 场会话，时间由近及远 -> 转换为从远到近便于折线趋势展示
+            // 获取最近 10 场会话，转换为从远到近便于折线趋势展示
             const last10 = reports.slice(0, 10).reverse();
             
             // 1. 专注度趋势图配置
             const attentionOption = {
                 backgroundColor: 'transparent',
                 title: { 
-                    text: '📈 近期专注度波动趋势',
+                    text: '📈 近期历史课堂专注度趋势',
                     left: 'center',
                     textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
                 },
@@ -403,15 +690,17 @@
                     borderColor: 'rgba(99, 102, 241, 0.2)',
                     textStyle: { color: '#1e293b' }
                 },
-                grid: { top: '15%', bottom: '10%', left: '10%', right: '5%' },
+                grid: { top: '18%', bottom: '15%', left: '10%', right: '5%' },
                 xAxis: { 
                     type: 'category', 
-                    data: last10.map(r => r.date.split(' ')[0]),
+                    data: last10.map(r => r.class_name + '\n' + r.date.split(' ')[0].substring(5)),
                     axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
-                    axisLabel: { color: '#64748b' }
+                    axisLabel: { color: '#64748b', interval: 0, fontSize: 10 }
                 },
                 yAxis: { 
                     type: 'value', 
+                    min: 0,
+                    max: 100,
                     axisLabel: { formatter: '{value}%', color: '#64748b' },
                     splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
                 },
@@ -420,13 +709,13 @@
                     data: last10.map(r => parseFloat(r.avg_attention_rate)),
                     type: 'line',
                     smooth: true,
-                    color: '#4f46e5',
+                    color: '#6366f1',
                     symbolSize: 8,
                     lineStyle: { width: 3 },
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(79, 70, 229, 0.25)' },
-                            { offset: 1, color: 'rgba(79, 70, 229, 0)' }
+                            { offset: 0, color: 'rgba(99, 102, 241, 0.25)' },
+                            { offset: 1, color: 'rgba(99, 102, 241, 0)' }
                         ])
                     }
                 }]
@@ -436,7 +725,7 @@
             const studentsOption = {
                 backgroundColor: 'transparent',
                 title: { 
-                    text: '👥 近期场次最高在线人数',
+                    text: '👥 近期场次最高在屏人数',
                     left: 'center',
                     textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
                 },
@@ -446,7 +735,7 @@
                     borderColor: 'rgba(16, 185, 129, 0.2)',
                     textStyle: { color: '#1e293b' }
                 },
-                grid: { top: '15%', bottom: '10%', left: '10%', right: '5%' },
+                grid: { top: '18%', bottom: '15%', left: '10%', right: '5%' },
                 xAxis: { 
                     type: 'category', 
                     data: last10.map(r => r.session_id),
@@ -465,8 +754,8 @@
                     barWidth: '35%',
                     itemStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: '#059669' },
-                            { offset: 1, color: 'rgba(5, 150, 105, 0.1)' }
+                            { offset: 0, color: '#10b981' },
+                            { offset: 1, color: 'rgba(16, 185, 129, 0.1)' }
                         ]),
                         borderRadius: [5, 5, 0, 0]
                     }
@@ -475,6 +764,139 @@
 
             attentionChart.setOption(attentionOption);
             studentsChart.setOption(studentsOption);
+        }
+
+        // 加载横向与纵向对比汇总数据 (班级、学科大屏对比)
+        async function loadComparisonAnalytics() {
+            try {
+                // 1. 获取班级对比
+                const resClass = await fetch('/api/analytics/class_compare');
+                const classData = await resClass.json();
+                
+                const classNames = classData.map(d => d.class_name);
+                const classAttention = classData.map(d => d.avg_attention_rate);
+                const classStudents = classData.map(d => d.avg_max_students);
+                
+                const classCompareOption = {
+                    backgroundColor: 'transparent',
+                    title: { 
+                        text: '🏫 不同班级平均专注度与人数对比',
+                        left: 'center',
+                        textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
+                    },
+                    tooltip: { 
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                    },
+                    legend: {
+                        data: ['专注度', '平均最高人数'],
+                        top: '8%'
+                    },
+                    grid: { top: '22%', bottom: '10%', left: '10%', right: '10%' },
+                    xAxis: { 
+                        type: 'category', 
+                        data: classNames,
+                        axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+                        axisLabel: { color: '#64748b' }
+                    },
+                    yAxis: [
+                        { 
+                            type: 'value',
+                            name: '专注度',
+                            min: 0,
+                            max: 100,
+                            axisLabel: { formatter: '{value}%', color: '#64748b' },
+                            splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
+                        },
+                        { 
+                            type: 'value',
+                            name: '人数',
+                            axisLabel: { formatter: '{value} 人', color: '#64748b' },
+                            splitLine: { show: false }
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '专注度',
+                            type: 'bar',
+                            data: classAttention,
+                            barWidth: '25%',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#4f46e5' },
+                                    { offset: 1, color: 'rgba(79, 70, 229, 0.1)' }
+                                ]),
+                                borderRadius: [4, 4, 0, 0]
+                            }
+                        },
+                        {
+                            name: '平均最高人数',
+                            type: 'bar',
+                            yAxisIndex: 1,
+                            data: classStudents,
+                            barWidth: '25%',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#f59e0b' },
+                                    { offset: 1, color: 'rgba(245, 158, 11, 0.1)' }
+                                ]),
+                                borderRadius: [4, 4, 0, 0]
+                            }
+                        }
+                    ]
+                };
+                classCompareChart.setOption(classCompareOption);
+
+                // 2. 获取学科对比
+                const resCourse = await fetch('/api/analytics/course_compare');
+                const courseData = await resCourse.json();
+                
+                const courseNames = courseData.map(d => d.course_name);
+                const courseAttention = courseData.map(d => d.avg_attention_rate);
+                
+                const courseCompareOption = {
+                    backgroundColor: 'transparent',
+                    title: { 
+                        text: '📚 不同学科平均专注度对比',
+                        left: 'center',
+                        textStyle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' }
+                    },
+                    tooltip: { 
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                    },
+                    grid: { top: '18%', bottom: '10%', left: '10%', right: '5%' },
+                    xAxis: { 
+                        type: 'category', 
+                        data: courseNames,
+                        axisLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+                        axisLabel: { color: '#64748b' }
+                    },
+                    yAxis: { 
+                        type: 'value', 
+                        min: 0,
+                        max: 100,
+                        axisLabel: { formatter: '{value}%', color: '#64748b' },
+                        splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } }
+                    },
+                    series: [{
+                        name: '平均专注度',
+                        type: 'bar',
+                        data: courseAttention,
+                        barWidth: '35%',
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#059669' },
+                                { offset: 1, color: 'rgba(5, 150, 105, 0.1)' }
+                            ]),
+                            borderRadius: [6, 6, 0, 0]
+                        }
+                    }]
+                };
+                courseCompareChart.setOption(courseCompareOption);
+            } catch (err) {
+                console.error('加载汇总对比数据图表失败:', err);
+            }
         }
     </script>
 </body>
